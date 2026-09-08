@@ -76,6 +76,9 @@ export function buildBoard(
     if (!pre) { state = '⚠ 運転前が未記録'; ng = true; }
     else if (normResult(pre.result) !== '0.00') { state = '⚠ 検出あり。運行させないこと'; ng = true; }
     else if (stillRunning) state = '運行中（運転後は帰着後）';
+    // 運転前・運転後がそろっているのに運行が1件も無い。運行の削除や試し入力で起きる。
+    // アルコールの記録は運行に紐づかない独立した記録なので、自動では消さずここで知らせる
+    else if (!drove && post) { state = '⚠ 運行の記録がないのにチェックだけある'; ng = true; }
     else if (!drove) state = '運転前のみ記録（まだ運行なし）';
     else if (!post) { state = '⚠ 運転後が未記録'; ng = true; }
     return { driver, pre, post, state, ng };

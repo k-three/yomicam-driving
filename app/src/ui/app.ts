@@ -304,9 +304,9 @@ export class App {
     this.root.querySelectorAll<HTMLElement>('[data-fix]').forEach(b => b.onclick = () => {
       const trip = this.snap!.trips.find(x => x.id === b.dataset.fix);
       if (!trip) return;
+      // 削除は渡さない。確定した運行の削除は管理者だけができる（firestore.rules）
       openTripEditor(trip, this.config, {
         save: patch => this.run(() => this.store.editTrip(trip.id, patch), '記録を直しました'),
-        remove: () => this.run(() => this.store.cancelTrip(trip.id), '記録を削除しました'),
       });
     });
 

@@ -54,3 +54,28 @@ describe('運行状況', () => {
     expect(b.events.map(e => e.at)).toEqual(['14:40', '14:20', '14:10', '14:00']);
   });
 });
+
+describe('運行を消したあとのアルコールチェック', () => {
+  const check = (kind: AlcoholCheck['kind'], driver: string, at: string): AlcoholCheck => ({
+    id: `${kind}-${driver}-${at}`, date: '2026-09-08', kind, driver, vehicle: '車両',
+    at, result: '0.00', inspection: kind === '運転前' ? '良' : '', note: '良好',
+    checker: '安全運転管理者', method: '対面',
+  });
+
+  it('運行が1件も無いのに運転前・運転後がそろっていたら知らせる', () => {
+    // 運行を削除したあと、チェックだけが残っている状態。
+    // アルコールの記録は独立した法定記録なので自動では消さず、ここで気づかせる
+    const b = buildBoard([], [check('運転前', '運転者A', '08:00'), check('運転後', '運転者A', '17:00')],
+      '18:00', { stayMin: 30, tripMin: 120 });
+    const row = b.alcohol.find(a => a.driver === '運転者A')!;
+    expect(row.ng).toBe(true);
+    expect(row.state).toContain('運行の記録がない');
+    expect(b.alerts).toBeGreaterThan(0);
+  });
+
+  it('運転前だけなら、まだ出発前なので知らせない', () => {
+    const b = buildBoard([], [check('運転前', '運転者A', '08:00')],
+      '08:30', { stayMin: 30, tripMin: 120 });
+    expect(b.alcohol.find(a => a.driver === '運転者A')!.ng).toBe(false);
+  });
+});

@@ -64,7 +64,9 @@ const timeInput = (name: string, v: string) =>
 
 export function openTripEditor(
   trip: Trip, config: Config,
-  handlers: { save: (patch: TripPatch) => void; remove: () => void },
+  // remove を渡さない場合は削除ボタンを出さない（運転手アプリなど、
+  // 確定した記録を消せない立場から開くとき）
+  handlers: { save: (patch: TripPatch) => void; remove?: () => void },
 ) {
   const schools = config.schools;
   const stopRow = (s: Stop, i: number) => `<tr data-stop>
@@ -97,7 +99,7 @@ export function openTripEditor(
     </div>
     ${row('特記', `<input name="note" value="${esc(trip.note)}" placeholder="修正の理由など">`,
       '直した理由を残しておくと、後から経緯を追えます')}`,
-    { danger: 'この運行を削除' });
+    handlers.remove ? { danger: 'この運行を削除' } : {});
 
   const body = d.querySelector<HTMLElement>('[data-stops]')!;
   let n = trip.stops.length;

@@ -156,3 +156,28 @@ test('パスワード欄で英字が打てて、表示も確認できる', async
   await page.getByTestId('peek').click();
   await expect(pw).toHaveAttribute('type', 'password');
 });
+
+test('運行を削除すると、残ったアルコールチェックの扱いを聞かれる', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+
+  const asked: string[] = [];
+  page.on('dialog', d => { asked.push(d.message()); d.accept(); });
+
+  // 運転者J はハイエースで2回運行し、アルコールも記録済み。
+  // 2件とも削除すると、この運転者の運行が1件も無くなる
+  const before = await page.getByTestId('check-fix-row').count();
+  expect(before).toBeGreaterThan(0);
+
+  for (const at of ['13:05', '14:05']) {
+    await page.getByTestId('trip-fix-row').filter({ hasText: at })
+      .getByRole('button', { name: '修正' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'この運行を削除' }).click();
+  }
+
+  // 2件目の削除で「アルコールチェックも消すか」を聞かれる
+  expect(asked.join('\n')).toContain('アルコールチェックの記録が');
+  // OK したので、運転者J のチェックだけが消えている（他の運転者のぶんは残る）
+  await expect(page.getByTestId('check-fix-row').filter({ hasText: '運転者J' })).toHaveCount(0);
+  await expect(page.getByTestId('check-fix-row').filter({ hasText: '運転者K' })).toHaveCount(1);
+});
+

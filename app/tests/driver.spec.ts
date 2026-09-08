@@ -171,3 +171,18 @@ test('自分の運行を、その場で直せる', async ({ page }) => {
   await expect(page.getByText(/〜17:30/)).toBeVisible();
   await page.screenshot({ path: 'tests/shot-driving.png', fullPage: true });
 });
+
+test('運転手アプリからは、確定した運行を削除できない', async ({ page }) => {
+  // 削除はルールでも管理者だけに許しているので、ボタン自体を出さない
+  await unlock(page);
+  await page.getByTestId('alc-record-運転前').click();
+  await page.getByTestId('depart').click();
+  await page.getByTestId('return').click();
+  await page.getByTestId('finish').click();
+
+  await page.getByRole('button', { name: '修正' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '保存する' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'この運行を削除' })).toHaveCount(0);
+});
