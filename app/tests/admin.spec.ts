@@ -134,3 +134,25 @@ test('マスタ未登録なら設定を促し、登録すると消える', async
   await page.getByRole('button', { name: '＋ アルコールチェックを追記' }).click();
   await expect(page.getByRole('dialog').getByLabel('運転者')).toContainText('山田太郎');
 });
+
+test('パスワード欄で英字が打てて、表示も確認できる', async ({ page }) => {
+  await page.goto('admin.html');
+  const pw = page.getByTestId('pw');
+
+  // 数字キーボードに固定してはいけない（英字を含むパスワードが打てなくなる）
+  await expect(pw).not.toHaveAttribute('inputmode', /.+/);
+  // iPhone が先頭を大文字にしないようにする
+  await expect(pw).toHaveAttribute('autocapitalize', 'off');
+  await expect(pw).toHaveAttribute('autocorrect', 'off');
+
+  await pw.fill('434343admin');
+  await expect(pw).toHaveValue('434343admin');
+
+  // 伏せ字のままだと打ち間違いに気づけないので、確かめられるようにしてある
+  await expect(pw).toHaveAttribute('type', 'password');
+  await page.getByTestId('peek').click();
+  await expect(pw).toHaveAttribute('type', 'text');
+  await page.screenshot({ path: 'tests/shot-login-admin.png' });
+  await page.getByTestId('peek').click();
+  await expect(pw).toHaveAttribute('type', 'password');
+});

@@ -62,8 +62,14 @@ button{font-family:inherit;cursor:pointer}
 .signin{max-width:380px;margin:16vh auto;text-align:center}
 .signin .logo{font-weight:900;font-size:19px;margin-bottom:14px}
 .signin .logo small{display:block;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.08em}
-.signin input{width:100%;font-family:inherit;font-size:26px;text-align:center;letter-spacing:.28em;
-  padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+/* パスワード欄と「表示」ボタン。伏せ字のままでは打ち間違いに気づけない */
+.pw{position:relative}
+.signin input{width:100%;font-family:inherit;font-size:24px;text-align:center;letter-spacing:.16em;
+  padding:14px 68px 14px 14px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);color:var(--ink)}
+.pw #peek{position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);
+  background:var(--chip);border:none;border-radius:8px;padding:7px 12px;cursor:pointer}
 .signin input:disabled{color:var(--muted)}
 .signin .err{color:var(--danger);font-weight:900;min-height:24px;margin:10px 0}
 .signin .note{color:var(--muted);font-size:13px;line-height:1.7}
