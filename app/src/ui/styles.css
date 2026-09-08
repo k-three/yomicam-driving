@@ -1,0 +1,87 @@
+:root{
+  --bg:#F5F4EF; --surface:#FFF; --ink:#20302C; --muted:#66736E; --line:#E1DFD7;
+  --accent:#0E7A5F; --accent-ink:#FFF; --accent-soft:#E3F0EB;
+  --warn:#8A5210; --warn-soft:#FBEEDD; --warn-line:#E8D2AE;
+  --danger:#B3261E; --danger-soft:#F9E6E4; --chip:#EAE8E0;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  font-size:16px;line-height:1.55;-webkit-tap-highlight-color:transparent}
+#app{max-width:480px;margin:0 auto;padding:0 14px 90px;min-height:100vh}
+header{display:flex;align-items:center;gap:10px;padding:14px 2px 10px}
+.logo{font-weight:900;font-size:17px}
+.logo small{display:block;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.picks{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.pick{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+  text-align:left;font-family:inherit;cursor:pointer;width:100%}
+.pick small{display:block;font-size:11px;color:var(--muted)}
+.pick b{font-size:16px}
+.pick.unset b{color:var(--muted);font-weight:500}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.card h2{margin:0 0 10px;font-size:14px;font-weight:700;color:var(--muted)}
+.banner{border-radius:12px;padding:12px 14px;margin-bottom:12px;font-weight:700}
+.banner.warn{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
+.banner.go{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent)}
+.banner .t{display:block;font-weight:500;font-size:13px;margin-top:2px}
+.row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row .label{font-weight:700}
+.row .status{margin-left:auto;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums}
+.row .status.ng{color:var(--danger)}
+.row .status.locked{color:var(--muted);font-weight:500;font-size:13px}
+button{font-family:inherit;cursor:pointer}
+.go{margin-left:auto;background:var(--accent);color:var(--accent-ink);border:none;border-radius:999px;
+  padding:8px 16px;font-size:14px;font-weight:900}
+.mini{background:none;border:none;color:var(--muted);font-size:12px;text-decoration:underline;padding:4px 6px}
+.big{display:block;width:100%;background:var(--accent);color:var(--accent-ink);border:none;border-radius:14px;
+  padding:20px;font-size:20px;font-weight:900;margin-bottom:10px}
+.big:disabled{opacity:.45;cursor:default}
+.big.secondary{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
+.school{display:block;width:100%;background:var(--surface);border:1.5px solid var(--line);border-radius:12px;
+  padding:15px;font-size:17px;font-weight:700;margin-bottom:8px;text-align:left}
+.school .done{float:right;font-size:12px;color:var(--accent);font-weight:700}
+.counts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.counts button{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:14px 0;
+  font-size:19px;font-weight:900}
+.counts button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.counts .zero{grid-column:span 4;font-size:15px}
+.link{background:none;border:none;color:var(--muted);font-size:14px;text-decoration:underline;
+  padding:10px;width:100%}
+.link.danger{color:var(--danger)}
+.note{font-size:13px;color:var(--muted);margin:8px 2px 0}
+.log{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log:last-child{border-bottom:none}
+.log .time{font-weight:700;font-variant-numeric:tabular-nums}
+.log .desc{color:var(--muted)}
+/* ログイン画面。運転手アプリと管理画面で共通 */
+.signin{max-width:380px;margin:16vh auto;text-align:center}
+.signin .logo{font-weight:900;font-size:19px;margin-bottom:14px}
+.signin .logo small{display:block;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.08em}
+.signin input{width:100%;font-family:inherit;font-size:26px;text-align:center;letter-spacing:.28em;
+  padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.signin input:disabled{color:var(--muted)}
+.signin .err{color:var(--danger);font-weight:900;min-height:24px;margin:10px 0}
+.signin .note{color:var(--muted);font-size:13px;line-height:1.7}
+.signin .uid{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;word-break:break-all;
+  background:var(--chip);border-radius:8px;padding:10px 12px;margin:14px 0;user-select:all}
+.signin .big{width:100%}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
+  border-radius:999px;padding:10px 20px;font-size:14px;font-weight:700;opacity:0;transition:opacity .2s;
+  pointer-events:none;z-index:9}
+.toast.show{opacity:1}
+.toggle{display:flex;gap:10px;align-items:flex-start;width:100%;background:var(--surface);
+  border:1.5px solid var(--line);border-radius:12px;padding:13px;margin-bottom:10px;text-align:left;font-family:inherit}
+.toggle .box{width:24px;height:24px;border:2px solid var(--line);border-radius:7px;flex:none;
+  display:flex;align-items:center;justify-content:center;font-weight:900;color:var(--accent-ink)}
+.toggle.on .box{background:var(--accent);border-color:var(--accent)}
+.toggle small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+
+/* 未送信の記録があることを伝える帯。電波の弱い車内で「消えたのでは」と思わせないため */
+.pending{margin:0 0 8px;background:var(--warn-soft);border:1px solid var(--warn-line);
+  color:var(--warn);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;line-height:1.5}
+
+/* 接続中・ログインなど、アプリ本体の前に出す画面 */
+.boot{max-width:420px;margin:18vh auto;text-align:center;color:var(--muted);font-weight:700}
+.boot .err{color:var(--danger);margin:10px 0}
+.boot button{margin-top:14px}

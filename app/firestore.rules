@@ -1,0 +1,66 @@
+rules_version = '2';
+
+/**
+ * 権限の分け方
+ *
+ *   運転手  … 運転手用アカウント（パスワードのみでログイン）。
+ *             記録の追加と、運行中の記録の更新・削除だけができる。
+ *             確定した記録の書き換えや削除はできない。
+ *   管理者  … 管理者用アカウント。さらに admins に自分の uid の文書がある人だけ。
+ *             すべての記録の修正・削除、マスタの変更ができる。
+ *
+ * パスワードは Firebase 側で照合されるので、ここでは「ログインできた人」を
+ * 信頼してよい。匿名ログインは明示的に締め出してある（Authentication で
+ * 匿名を無効にしていても、設定の取り違えで開いてしまう事故を防ぐため）。
+ *
+ * 運転手は全員が1つのアカウントを共有する。したがって createdBy は
+ * 「誰が」ではなく「運転手アプリからか管理画面からか」を示す記録として残る。
+ * 誰が運転したかは、記録そのものの driver 欄が持つ。
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 匿名ログインは通さない。読み取りも書き込みも、必ずパスワードを通った人だけ
+    function member() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+    function isAdmin() {
+      return member() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function running() { return resource.data.status == 'running'; }
+
+    // 管理者の名簿。追加は Firebase コンソールから手で行う（誰も自分で昇格できない）
+    match /admins/{uid} {
+      allow read: if member();
+      allow write: if false;
+    }
+
+    // マスタ（運転者・車両・拠点・確認者・学校）
+    match /config/{doc} {
+      allow read: if member();
+      allow write: if isAdmin();
+    }
+
+    match /trips/{id} {
+      allow read: if member();
+      // 運転手アプリからの新規は必ず運行中として作る。過去日の後付けは管理者のみ
+      allow create: if isAdmin()
+        || (member() && request.resource.data.status == 'running'
+            && request.resource.data.createdBy == request.auth.uid);
+      // 運転手が触れるのは運行中のものだけ。確定した記録は管理者しか直せない
+      allow update: if isAdmin() || (member() && running());
+      // 運行のリセット。確定済みは管理者のみ
+      allow delete: if isAdmin() || (member() && running());
+    }
+
+    match /alcohol/{id} {
+      allow read: if member();
+      allow create: if isAdmin()
+        || (member() && request.resource.data.createdBy == request.auth.uid);
+      // 誤タップの取消。確定した帳簿の整理は管理者が行う
+      allow update, delete: if isAdmin()
+        || (member() && resource.data.createdBy == request.auth.uid);
+    }
+  }
+}

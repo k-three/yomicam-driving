@@ -1,0 +1,29 @@
+/* 印刷用。画面では隠しておき、印刷のときだけ出す。
+   A4・余白10mm・見出し行はページごとに繰り返す（thead の既定動作）。 */
+#printable{display:none}
+
+@page{size:A4 landscape;margin:10mm}
+@page land{size:A4 landscape;margin:10mm}
+@page port{size:A4 portrait;margin:10mm}
+
+@media print{
+  #app{display:none !important}
+  .tl-tip{display:none !important}
+  #printable{display:block}
+  body{background:#fff;color:#000;font-size:9.5pt}
+
+  .sheet{break-after:page}
+  .sheet:last-child{break-after:auto}
+  .sheet.land{page:land}
+  .sheet.port{page:port}
+
+  .sheet h1{font-size:14pt;font-weight:700;margin:0 0 8pt}
+  .sheet table{width:100%;border-collapse:collapse}
+  .sheet thead{display:table-header-group}   /* 各ページの先頭で見出しを繰り返す */
+  .sheet tr{break-inside:avoid}
+  .sheet th,.sheet td{border:0.5pt solid #999;padding:3pt 5pt;text-align:left;
+    vertical-align:top;word-break:break-all}
+  .sheet th{background:#EEE;font-weight:700;white-space:nowrap}
+  .sheet td.empty{text-align:center;color:#666;padding:12pt}
+  .sheet .foot{margin:6pt 0 0;font-size:8pt;color:#444}
+}

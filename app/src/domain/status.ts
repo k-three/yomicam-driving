@@ -1,0 +1,85 @@
+/** 運行管理担当が「順調か・異常はないか」をひと目で掴むための現況。
+ *  追記型のログではなく、いまの記録から毎回組み立てる派生ビューなので、
+ *  取り消し・リセット・修正はそのまま反映され、消えたものは残らない。 */
+import type { AlcoholCheck, Trip } from './types';
+import { elapsed, hm, isAfter, normResult } from './time';
+import { totalCount } from './reports';
+
+export type RunningRow = {
+  trip: Trip; elapsedMin: number; place: string; onboard: number; worries: string[];
+};
+export type AlcoholRow = { driver: string; pre?: AlcoholCheck; post?: AlcoholCheck; state: string; ng: boolean };
+export type Event = { at: string; vehicle: string; what: string; place: string; count: number | '' };
+
+export type Board = {
+  running: RunningRow[];
+  done: Trip[];
+  alcohol: AlcoholRow[];
+  events: Event[];
+  alerts: number;
+};
+
+export function buildBoard(
+  trips: Trip[], checks: AlcoholCheck[], nowHm: string,
+  threshold: { stayMin: number; tripMin: number },
+): Board {
+  const running = trips.filter(t => t.status === 'running')
+    .sort((a, b) => (a.departAt < b.departAt ? -1 : 1))
+    .map<RunningRow>(t => {
+      const last = t.stops[t.stops.length - 1];
+      const open = last && !last.departAt ? last : undefined;
+      const worries: string[] = [];
+      let place: string;
+      if (open) {
+        const stay = elapsed(open.arriveAt, nowHm);
+        place = `${open.school}（${open.arriveAt} 到着・滞在${stay}分）`;
+        if (stay > threshold.stayMin)
+          worries.push(`学校での滞在が${stay}分。乗車の記録漏れか、何か起きている可能性`);
+      } else if (last) {
+        place = `${last.school} を ${last.departAt} 発（移動中）`;
+      } else {
+        place = `${t.base} を ${t.departAt} 発（学校へ移動中）`;
+      }
+      const elapsedMin = elapsed(t.departAt, nowHm);
+      if (elapsedMin > threshold.tripMin)
+        worries.push(`運行開始から${hm(elapsedMin)}。終了の押し忘れの可能性`);
+      if (!checks.some(c => c.kind === '運転前' && c.driver === t.driver))
+        worries.push('運転前アルコールチェックが未記録');
+      return { trip: t, elapsedMin, place, onboard: totalCount(t), worries };
+    });
+
+  const done = trips.filter(t => t.status === 'done')
+    .sort((a, b) => (a.departAt < b.departAt ? -1 : 1));
+
+  const drivers = [...new Set([...running.map(r => r.trip.driver), ...done.map(t => t.driver), ...checks.map(c => c.driver)])];
+  const pick = (kind: AlcoholCheck['kind'], d: string) => checks.filter(c => c.kind === kind && c.driver === d).slice(-1)[0];
+  const alcohol = drivers.map<AlcoholRow>(driver => {
+    const pre = pick('運転前', driver), post = pick('運転後', driver);
+    const stillRunning = running.some(r => r.trip.driver === driver);
+    const drove = done.some(t => t.driver === driver);
+    let state = '✓ 記録済み', ng = false;
+    if (!pre) { state = '⚠ 運転前が未記録'; ng = true; }
+    else if (normResult(pre.result) !== '0.00') { state = '⚠ 検出あり。運行させないこと'; ng = true; }
+    else if (stillRunning) state = '運行中（運転後は帰着後）';
+    else if (!drove) state = '運転前のみ記録（まだ運行なし）';
+    else if (!post) { state = '⚠ 運転後が未記録'; ng = true; }
+    return { driver, pre, post, state, ng };
+  });
+
+  const events: Event[] = [];
+  const push = (at: string, vehicle: string, what: string, place = '', count: number | '' = '') => {
+    if (at) events.push({ at, vehicle, what, place, count });
+  };
+  for (const t of trips) {
+    push(t.departAt, t.vehicle, '出発', t.base);
+    for (const s of t.stops) {
+      push(s.arriveAt, t.vehicle, '学校に到着', s.school);
+      if (s.departAt) push(s.departAt, t.vehicle, s.count > 0 ? `${s.count}名 乗せて出発` : '乗車なしで出発', s.school, s.count);
+    }
+    if (t.status === 'done') push(t.returnAt, t.vehicle, '拠点に到着（運行終了）', t.dest, totalCount(t));
+  }
+  events.sort((a, b) => (isAfter(a.at, b.at) ? -1 : a.at === b.at ? 0 : 1));
+
+  const alerts = running.filter(r => r.worries.length).length + alcohol.filter(a => a.ng).length;
+  return { running, done, alcohol, events, alerts };
+}

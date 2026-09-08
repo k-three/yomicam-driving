@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.firebase/
+test-results/
+playwright-report/
+tests/shot-*.png
+tests/out*.xlsx
+tests/out*.pdf

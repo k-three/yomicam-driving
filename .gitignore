@@ -1,0 +1,10 @@
+# 生成物（サンプルスクリプトの出力）
+*.xlsx
+*.pdf
+
+# Python
+__pycache__/
+*.pyc
+
+# clasp のログイン情報（絶対にコミットしない）
+.clasprc.json

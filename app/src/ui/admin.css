@@ -1,0 +1,133 @@
+#app{max-width:1080px}
+.board-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;padding:16px 2px 10px}
+.board-head h1{margin:0;font-size:21px;font-weight:900}
+.board-head .when{color:var(--muted);font-size:13px;margin-left:auto;font-variant-numeric:tabular-nums}
+.pill{border-radius:999px;padding:3px 12px;font-size:12px;font-weight:900}
+.pill.ok{background:var(--accent-soft);color:var(--accent)}
+.pill.ng{background:var(--danger-soft);color:var(--danger)}
+section{margin-bottom:22px}
+section h2{font-size:14px;font-weight:900;color:var(--muted);margin:0 0 8px;letter-spacing:.04em}
+.tablewrap{overflow-x:auto;border-radius:12px}
+table{width:100%;min-width:620px;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);
+  border-radius:12px;overflow:hidden;font-size:14px}
+th{background:var(--chip);text-align:left;padding:9px 12px;font-size:12px;font-weight:900;white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+tr.alert td{background:var(--danger-soft)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+/* 車両名・運転者名が途中で折り返すと読みにくいので改行させない */
+td.name{white-space:nowrap}
+.empty{color:var(--muted);padding:14px 12px}
+.worry{color:var(--danger);font-weight:700}
+
+/* ---- 時系列の帯 ---- */
+/* 3状態の識別色。scripts/validate_palette.js で
+   明度帯・彩度・CVD分離・通常視分離・コントラストのすべてが通過した組み合わせ。 */
+:root{ --tl-onboard:#0F8A5F; --tl-wait:#C2820A; --tl-ferry:#7A46C0; }
+
+.timeline{margin-bottom:26px}
+.timeline h2{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-weight:500;color:var(--ink)}
+.lg{display:flex;align-items:center;gap:6px;font-size:12px}
+.sw{width:14px;height:10px;border-radius:3px;display:inline-block}
+.sw.onboard{background:var(--tl-onboard)} .sw.wait{background:var(--tl-wait)} .sw.ferry{background:var(--tl-ferry)}
+
+.tl{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 14px 12px;overflow-x:auto}
+.tl-row{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:12px;min-width:640px}
+.tl-row + .tl-row{border-top:1px solid var(--line)}
+.tl-row.alert .tl-label b{color:var(--danger)}
+.tl-label{padding:8px 0;line-height:1.35}
+.tl-label b{display:block;font-size:14px}
+.tl-label small{display:block;color:var(--muted);font-size:11.5px}
+.tl-warn{display:inline-block;margin-top:3px;font-style:normal;font-size:11px;font-weight:900;
+  color:var(--danger);background:var(--danger-soft);border-radius:999px;padding:1px 8px}
+
+.tl-track{position:relative;height:34px}
+.tl-axis .tl-track{height:22px}
+.tl-tick{position:absolute;top:4px;transform:translateX(-50%);font-size:11px;color:var(--muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.tl-axis .tl-track::after{content:"";position:absolute;left:0;right:0;bottom:0;border-bottom:1px solid var(--line)}
+
+.sp{position:absolute;top:7px;height:20px;border-radius:4px;margin-left:1px;
+  display:flex;align-items:center;overflow:hidden;cursor:default}
+.sp span{padding:0 7px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;
+  text-overflow:ellipsis;overflow:hidden}
+.sp.onboard{background:var(--tl-onboard)} .sp.wait{background:var(--tl-wait)} .sp.ferry{background:var(--tl-ferry)}
+/* 進行中の区間は右端を開いたままにして、まだ終わっていないことを示す */
+.sp.live{border-top-right-radius:0;border-bottom-right-radius:0;
+  -webkit-mask-image:linear-gradient(90deg,#000 82%,rgba(0,0,0,.35));
+  mask-image:linear-gradient(90deg,#000 82%,rgba(0,0,0,.35))}
+
+.tl-now{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);opacity:.55}
+.tl-axis .tl-now span{position:absolute;top:0;left:6px;font-size:11px;font-weight:900;color:var(--ink);
+  white-space:nowrap;opacity:.85}
+.tl-note{font-size:12px;color:var(--muted);margin:8px 2px 0}
+.empty-tl{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;color:var(--muted)}
+
+.tl-tip{position:fixed;transform:translate(-50%,-100%);background:var(--ink);color:var(--bg);
+  border-radius:8px;padding:7px 11px;font-size:12px;font-weight:700;white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .12s;z-index:20}
+.tl-tip.show{opacity:1}
+.sample{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn);
+  border-radius:10px;padding:9px 13px;font-size:13px;font-weight:700;margin:10px 0}
+
+/* ---- タブ ---- */
+.tabs{display:flex;align-items:center;gap:8px;padding:14px 2px 4px;flex-wrap:wrap}
+.tabs .sp{flex:1}
+.tab{font-family:inherit;font-size:13px;font-weight:900;border-radius:999px;cursor:pointer;
+  padding:7px 16px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.tab.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+/* ---- 帳票のカード ---- */
+.rep{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface);
+  border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.rep b{display:block;font-size:14px}
+.rep small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.6}
+.rep .acts{margin-left:auto;display:flex;gap:8px}
+.board-head input[type=month]{font-family:inherit;font-size:13px;padding:5px 8px;
+  border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+td.note{color:var(--muted);font-size:13px}
+
+/* 運転手アプリの .mini は下線つきのリンク風。管理画面ではボタンとして押させたいので上書きする */
+.mini{font-family:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:999px;
+  border:1px solid var(--line);background:var(--chip);color:var(--ink);cursor:pointer;
+  white-space:nowrap;text-decoration:none}
+.mini:hover{background:var(--line)}
+.mini.danger{color:var(--danger);background:var(--danger-soft);border-color:var(--danger-soft)}
+
+/* ---- 修正ダイアログ ---- */
+dialog.editor{border:none;border-radius:16px;padding:0;max-width:760px;width:calc(100% - 32px);
+  background:var(--surface);color:var(--ink);box-shadow:0 18px 60px rgba(0,0,0,.25)}
+dialog.editor::backdrop{background:rgba(20,30,28,.45)}
+dialog.editor form{padding:20px 22px 16px}
+dialog.editor h2{margin:0 0 14px;font-size:17px;font-weight:900}
+dialog.editor .sub{margin:18px 0 6px;font-size:13px;font-weight:900;color:var(--muted)}
+dialog.editor .note{font-weight:500;font-size:12px;line-height:1.6}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+@media (max-width:560px){.grid2{grid-template-columns:1fr}}
+.fld{display:block}
+.fld > span{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:3px}
+.fld small{display:block;font-size:11px;color:var(--muted);margin-top:3px;line-height:1.5}
+.fld input,.fld select,.fld textarea{width:100%;font-family:inherit;font-size:14px;
+  padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.fld input:disabled{color:var(--muted)}
+.fld .chk{display:flex;align-items:center;gap:8px;font-size:14px;padding:8px 0}
+.fld .chk input{width:auto}
+table.stops{width:100%;border-collapse:collapse;font-size:13px}
+table.stops th{background:var(--chip);padding:6px 8px;font-size:11px;text-align:left}
+table.stops td{padding:4px;border-top:1px solid var(--line)}
+table.stops input,table.stops select{width:100%;font-family:inherit;font-size:13px;padding:6px 8px;
+  border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+dialog.editor .err{color:var(--danger);font-weight:700;font-size:13px;margin:12px 0 0}
+dialog.editor menu{display:flex;align-items:center;gap:10px;margin:18px 0 0;padding:0}
+dialog.editor menu .sp{flex:1}
+dialog.editor menu button{font-family:inherit;font-size:14px;font-weight:700;padding:9px 18px;
+  border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+dialog.editor menu button.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+dialog.editor menu button.danger{color:var(--danger);border-color:var(--danger-soft);background:var(--danger-soft)}
+
+/* マスタ未登録の案内。運転者・車両の実名はコードに置かず、ここから登録する */
+.notice{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:12px 0 4px;
+  background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn);
+  border-radius:12px;padding:12px 16px;font-size:13px;line-height:1.6}
+.notice b{font-size:14px}
+.notice span{flex:1;min-width:240px}
