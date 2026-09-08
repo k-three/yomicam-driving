@@ -3,10 +3,11 @@ name: デプロイ（GitHub Pages）
 # main に入った変更を、検査してから公開する。
 # 検査（型・集計・ブラウザ）が通らないものは公開しない。
 # 公開には GitHub が発行する一時的な権限を使うので、鍵や Secrets の設定は要らない。
+# main への push では対象ファイルを絞らない。絞ると、履歴を作り直したときなどに
+# 「変更なし」と判定されて公開されず、原因が分かりにくい形で止まるため。
 on:
   push:
     branches: [main]
-    paths: ['app/**', '.github/workflows/deploy.yml']
   pull_request:
     paths: ['app/**']
   workflow_dispatch:
