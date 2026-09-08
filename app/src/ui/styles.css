@@ -85,3 +85,14 @@ button{font-family:inherit;cursor:pointer}
 .boot{max-width:420px;margin:18vh auto;text-align:center;color:var(--muted);font-weight:700}
 .boot .err{color:var(--danger);margin:10px 0}
 .boot button{margin-top:14px}
+
+/* 1日の流れのどこにいるかを、画面の先頭で1行にして出す。
+   「記録できたのか分からない」「同じ画面に見える」を防ぐのが目的。 */
+.today{border-radius:14px;padding:13px 16px;margin-bottom:12px;line-height:1.6}
+.today b{display:block;font-size:16px;font-weight:900}
+.today span{display:block;font-size:12.5px;margin-top:3px;opacity:.85}
+.today[data-step="before"]{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
+.today[data-step="ready"],
+.today[data-step="driving"]{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent)}
+.today[data-step="finished"]{background:var(--chip);border:1px solid var(--line);color:var(--ink)}
+.big + .big{margin-top:10px}

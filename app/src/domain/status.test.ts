@@ -6,7 +6,7 @@ const T = { stayMin: 30, tripMin: 120 };
 const trip = (o: Partial<Trip>): Trip => ({
   id: 't', date: '2026-09-08', vehicle: 'パッソ', driver: '運転者H', base: '読谷村文化センター',
   departAt: '14:00', dest: '読谷村文化センター', returnAt: '', stops: [], mokushi: false,
-  codomon: false, note: '', status: 'running', ...o,
+  handover: false, note: '', status: 'running', ...o,
 });
 const chk = (o: Partial<AlcoholCheck>): AlcoholCheck => ({
   id: 'a', date: '2026-09-08', kind: '運転前', driver: '運転者H', vehicle: 'パッソ',

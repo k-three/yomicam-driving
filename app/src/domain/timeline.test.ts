@@ -5,7 +5,7 @@ import type { Trip } from './types';
 const trip = (o: Partial<Trip>): Trip => ({
   id: 't', date: '2026-09-08', vehicle: 'パッソ', driver: '運転者H', base: '読谷村文化センター',
   departAt: '14:00', dest: '読谷村文化センター', returnAt: '', stops: [], mokushi: false,
-  codomon: false, note: '', status: 'running', ...o,
+  handover: false, note: '', status: 'running', ...o,
 });
 
 describe('時系列の帯', () => {

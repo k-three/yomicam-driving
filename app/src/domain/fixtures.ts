@@ -8,7 +8,7 @@ import type { Trip, AlcoholCheck, Config } from './types';
 
 const trip = (o: Partial<Trip> & Pick<Trip, 'id' | 'date' | 'vehicle' | 'driver'>): Trip => ({
   base: '読谷村文化センター', departAt: '', dest: '読谷村文化センター', returnAt: '',
-  stops: [], mokushi: false, codomon: false, note: '', status: 'done', ...o,
+  stops: [], mokushi: false, handover: false, note: '', status: 'done', ...o,
 });
 
 const INCOMPLETE = '⚠未完了：拠点到着が記録されないまま日付が変わったため自動転記。到着時刻・乗車人数を確認してください';
@@ -18,7 +18,7 @@ export const TRIPS: Trip[] = [
     departAt: '17:27', dest: '（未記録）', returnAt: '', note: INCOMPLETE,
     stops: [{ school: '渡慶次小学校', arriveAt: '17:27', departAt: '', count: 0 }] }),
   trip({ id: '20260907-フリード1-1159', date: '2026-09-07', vehicle: 'フリード1', driver: '運転者K',
-    base: 'その他', departAt: '11:59', returnAt: '12:02', mokushi: true, codomon: true,
+    base: 'その他', departAt: '11:59', returnAt: '12:02', mokushi: true, handover: true,
     stops: [{ school: '渡慶次小学校', arriveAt: '12:00', departAt: '12:10', count: 1 }] }),
   trip({ id: '20260907-フリード1-1219', date: '2026-09-07', vehicle: 'フリード1', driver: '運転者K',
     departAt: '12:19', dest: '（未記録）', returnAt: '', note: INCOMPLETE,
@@ -27,10 +27,10 @@ export const TRIPS: Trip[] = [
     departAt: '15:43', dest: '（未記録）', returnAt: '', note: INCOMPLETE,
     stops: [{ school: '渡慶次小学校', arriveAt: '15:44', departAt: '', count: 0 }] }),
   trip({ id: '20260908-パッソ-1013', date: '2026-09-08', vehicle: 'パッソ', driver: '運転者H',
-    departAt: '10:13', returnAt: '10:13', mokushi: true, codomon: true,
+    departAt: '10:13', returnAt: '10:13', mokushi: true, handover: true,
     stops: [{ school: '読谷小学校', arriveAt: '10:13', departAt: '10:13', count: 1 }] }),
   trip({ id: '20260908-パッソ-1053', date: '2026-09-08', vehicle: 'パッソ', driver: '運転者H',
-    departAt: '10:53', returnAt: '10:54', mokushi: true, codomon: true,
+    departAt: '10:53', returnAt: '10:54', mokushi: true, handover: true,
     stops: [{ school: '古堅小学校', arriveAt: '10:53', departAt: '10:54', count: 1 },
             { school: '喜名小学校', arriveAt: '10:54', departAt: '10:54', count: 2 }] }),
 ];

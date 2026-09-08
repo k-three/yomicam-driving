@@ -45,7 +45,9 @@ function toTrip(id: string, d: Doc): Trip {
       count: Number(s.count ?? 0),
     })),
     mokushi: d.mokushi === true,
-    codomon: d.codomon === true,
+    // 以前は codomon（コドモン打刻）という名前だった。運用が変わり
+    // 「拠点の担当者への引き渡し」を記録する項目になったので、旧名も読む
+    handover: d.handover === true || d.codomon === true,
     note: String(d.note ?? ''),
     status: d.status === 'done' ? 'done' : 'running',
   };
@@ -145,11 +147,15 @@ export class FirestoreStore implements Store {
     this.trips = []; this.checks = [];
     this.tripSnap = null; this.checkSnap = null;
     const d = this.day;
+    // includeMetadataChanges を付けないと、サーバへ届いた瞬間（中身は変わらず
+    // 「未送信」の印だけが外れるとき）に通知が来ない。付けないと画面が
+    // 「未送信 N件」のまま張り付く。
+    const opts = { includeMetadataChanges: true };
     this.offDay = [
-      onSnapshot(query(collection(this.db, 'trips'), where('date', '==', d)),
+      onSnapshot(query(collection(this.db, 'trips'), where('date', '==', d)), opts,
         s => { this.tripSnap = s; this.trips = s.docs.map(x => toTrip(x.id, x.data() as Doc)); this.emit(); },
         e => this.onError(`運行記録を読み込めませんでした（${e.code}）`)),
-      onSnapshot(query(collection(this.db, 'alcohol'), where('date', '==', d)),
+      onSnapshot(query(collection(this.db, 'alcohol'), where('date', '==', d)), opts,
         s => { this.checkSnap = s; this.checks = s.docs.map(x => toCheck(x.id, x.data() as Doc)); this.emit(); },
         e => this.onError(`アルコールチェックを読み込めませんでした（${e.code}）`)),
     ];
@@ -197,7 +203,7 @@ export class FirestoreStore implements Store {
     const id = `${d.replace(/-/g, '')}-${vehicle}-${at.replace(':', '')}`;
     this.send(setDoc(doc(this.db, 'trips', id), {
       date: d, vehicle, driver, base, departAt: at, dest: '読谷村文化センター', returnAt: '',
-      stops: [], mokushi: false, codomon: false, note: '', status: 'running', createdBy: this.uid,
+      stops: [], mokushi: false, handover: false, note: '', status: 'running', createdBy: this.uid,
     }));
   }
 
@@ -216,7 +222,7 @@ export class FirestoreStore implements Store {
     this.send(updateDoc(doc(this.db, 'trips', tripId), { stops }));
   }
 
-  async finishTrip(tripId: string, input: { dest: string; mokushi: boolean; codomon: boolean; note: string }) {
+  async finishTrip(tripId: string, input: { dest: string; mokushi: boolean; handover: boolean; note: string }) {
     const t = this.trip(tripId);
     if (this.openStop(t)) throw new InputError('学校での乗車人数が未記録です。先に記録してください。');
     this.send(updateDoc(doc(this.db, 'trips', tripId), { ...input, returnAt: hhmm(), status: 'done' }));

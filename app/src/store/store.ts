@@ -16,7 +16,7 @@ export type Snapshot = {
 /** 管理者が直せる項目。運転手アプリからは触らない */
 export type TripPatch = Partial<Pick<Trip,
   'vehicle' | 'driver' | 'base' | 'departAt' | 'dest' | 'returnAt' |
-  'stops' | 'mokushi' | 'codomon' | 'note' | 'status'>>;
+  'stops' | 'mokushi' | 'handover' | 'note' | 'status'>>;
 
 export type AlcoholPatch = Partial<Omit<AlcoholCheck, 'id'>>;
 
@@ -28,7 +28,7 @@ export interface Store {
   startTrip(input: { vehicle: string; driver: string; base: string }): Promise<void>;
   arriveSchool(tripId: string, school: string): Promise<void>;
   departSchool(tripId: string, count: number): Promise<void>;
-  finishTrip(tripId: string, input: { dest: string; mokushi: boolean; codomon: boolean; note: string }): Promise<void>;
+  finishTrip(tripId: string, input: { dest: string; mokushi: boolean; handover: boolean; note: string }): Promise<void>;
   undoLast(tripId: string): Promise<void>;
   cancelTrip(tripId: string): Promise<void>;
   recordAlcohol(input: Omit<AlcoholCheck, 'id' | 'date' | 'at'>): Promise<void>;

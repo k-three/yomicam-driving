@@ -93,7 +93,7 @@ export function openTripEditor(
     <button type="button" class="mini" data-add>＋ 立ち寄りを追加</button>
     <div class="grid2">
       ${row('車内目視', `<label class="chk"><input name="mokushi" type="checkbox"${trip.mokushi ? ' checked' : ''}> 実施した</label>`)}
-      ${row('コドモン打刻', `<label class="chk"><input name="codomon" type="checkbox"${trip.codomon ? ' checked' : ''}> 実施した</label>`)}
+      ${row('引き渡し', `<label class="chk"><input name="handover" type="checkbox"${trip.handover ? ' checked' : ''}> 拠点の担当者に引き渡した</label>`)}
     </div>
     ${row('特記', `<input name="note" value="${esc(trip.note)}" placeholder="修正の理由など">`,
       '直した理由を残しておくと、後から経緯を追えます')}`,
@@ -135,7 +135,7 @@ export function openTripEditor(
     handlers.save({
       vehicle: val(d, 'vehicle'), driver: val(d, 'driver'), base: val(d, 'base'),
       departAt, dest: val(d, 'dest'), returnAt, status, stops,
-      mokushi: checked(d, 'mokushi'), codomon: checked(d, 'codomon'), note: val(d, 'note'),
+      mokushi: checked(d, 'mokushi'), handover: checked(d, 'handover'), note: val(d, 'note'),
     });
     return null;
   }, handlers.remove);

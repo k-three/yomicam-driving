@@ -63,10 +63,10 @@ export function reportSheets(kind: ReportKind, src: Source): SheetSpec[] {
     return [{
       name: '運行日報', title: `${m}　運行日報`,
       head: ['日付', '車両', '運転者', '出発地', '出発', '到着地', '到着', '所要時間',
-             '乗車人数', '経由', '車内目視', 'コドモン', '特記'],
+             '乗車人数', '経由', '車内目視', '引き渡し', '特記'],
       rows: list.map(t => [t.date, t.vehicle, t.driver, t.base, t.departAt, t.dest, t.returnAt,
                            hm(elapsed(t.departAt, t.returnAt)), totalCount(t), summarize(t),
-                           t.mokushi ? '済' : '', t.codomon ? '済' : '', t.note]),
+                           t.mokushi ? '済' : '', t.handover ? '済' : '', t.note]),
     }];
   }
 

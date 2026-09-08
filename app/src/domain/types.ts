@@ -26,7 +26,7 @@ export type Trip = {
   returnAt: Time;   // 運行中は ''
   stops: Stop[];
   mokushi: boolean; // 車内目視（置き去り防止）
-  codomon: boolean;
+  handover: boolean;
   note: string;
   status: 'running' | 'done';
 };

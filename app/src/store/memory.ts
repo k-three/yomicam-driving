@@ -36,11 +36,11 @@ export class MemoryStore implements Store {
     const d = today();
     const t = (o: Partial<Trip> & Pick<Trip, 'id' | 'vehicle' | 'driver' | 'departAt'>): Trip => ({
       date: d, base: '読谷村文化センター', dest: '読谷村文化センター', returnAt: '',
-      stops: [], mokushi: false, codomon: false, note: '', status: 'running', ...o,
+      stops: [], mokushi: false, handover: false, note: '', status: 'running', ...o,
     });
     this.trips = [
       t({ id: 's1', vehicle: 'ハイエース', driver: '運転者J', departAt: '13:05',
-          returnAt: '13:52', status: 'done', mokushi: true, codomon: true,
+          returnAt: '13:52', status: 'done', mokushi: true, handover: true,
           stops: [{ school: '渡慶次小学校', arriveAt: '13:18', departAt: '13:29', count: 3 }] }),
       t({ id: 's2', vehicle: 'フリード1', driver: '運転者K', departAt: '13:40',
           stops: [{ school: '古堅小学校', arriveAt: '13:55', departAt: '14:04', count: 2 },
@@ -96,7 +96,7 @@ export class MemoryStore implements Store {
     this.trips.push({
       id: `${d.replace(/-/g, '')}-${vehicle}-${hhmm().replace(':', '')}-${++this.seq}`,
       date: d, vehicle, driver, base, departAt: hhmm(), dest: '読谷村文化センター', returnAt: '',
-      stops: [], mokushi: false, codomon: false, note: '', status: 'running',
+      stops: [], mokushi: false, handover: false, note: '', status: 'running',
     });
     this.emit();
   }
@@ -117,7 +117,7 @@ export class MemoryStore implements Store {
     this.emit();
   }
 
-  async finishTrip(tripId: string, input: { dest: string; mokushi: boolean; codomon: boolean; note: string }) {
+  async finishTrip(tripId: string, input: { dest: string; mokushi: boolean; handover: boolean; note: string }) {
     const t = this.trip(tripId);
     if (this.openStop(t)) throw new InputError('学校での乗車人数が未記録です。先に記録してください。');
     Object.assign(t, { ...input, returnAt: hhmm(), status: 'done' as const });
