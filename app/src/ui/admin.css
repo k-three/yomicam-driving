@@ -32,14 +32,20 @@ td.name{white-space:nowrap}
 .sw.onboard{background:var(--tl-onboard)} .sw.wait{background:var(--tl-wait)} .sw.ferry{background:var(--tl-ferry)}
 
 .tl{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px 14px 12px;overflow-x:auto}
-.tl-row{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:12px;min-width:640px}
+.tl-row{display:grid;grid-template-columns:250px 1fr;align-items:center;gap:14px;min-width:760px}
 .tl-row + .tl-row{border-top:1px solid var(--line)}
 .tl-row.alert .tl-label b{color:var(--danger)}
 .tl-label{padding:8px 0;line-height:1.35}
 .tl-label b{display:block;font-size:14px}
 .tl-label small{display:block;color:var(--muted);font-size:11.5px}
-.tl-warn{display:inline-block;margin-top:3px;font-style:normal;font-size:11px;font-weight:900;
-  color:var(--danger);background:var(--danger-soft);border-radius:999px;padding:1px 8px}
+.tl-warn{display:block;margin-top:4px;font-style:normal;font-size:11px;font-weight:700;line-height:1.5;
+  color:var(--danger);background:var(--danger-soft);border-radius:8px;padding:4px 8px}
+/* いまの状態。「いま動いている車両」の表を廃止して、ここへ寄せた */
+.st{display:inline-block;margin-top:3px;font-style:normal;font-size:11.5px;font-weight:900;
+  border-radius:999px;padding:2px 9px}
+.st.run{color:var(--accent);background:var(--accent-soft)}
+.st.idle{color:var(--muted);background:var(--chip)}
+.tl-label .place{margin-top:3px;line-height:1.45}
 
 .tl-track{position:relative;height:34px}
 .tl-axis .tl-track{height:22px}

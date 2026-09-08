@@ -52,7 +52,9 @@ test('出発から拠点到着までを記録できる', async ({ page }) => {
   await page.getByTestId('finish').click();
 
   await expect(page.getByText('本日の運行（全車両）')).toBeVisible();
-  await expect(page.getByText('パッソ・運転者H・2人')).toBeVisible();
+  // どこへ行って何人乗せたかが、その場で読める
+  await expect(page.getByText('渡慶次小学校 2人')).toBeVisible();
+  await expect(page.getByText('合計 2人')).toBeVisible();
 
   // 1回運行したあとは、次にやることが2つとも見えている
   await expect(page.getByTestId('today')).toContainText('本日 1回 運行しました');
@@ -74,12 +76,34 @@ test('運転後を記録すると、終了したことが画面で分かる', as
   await page.getByRole('button', { name: /本日の運転を終える/ }).click();
   await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
   await expect(page.getByTestId('alc-運転後')).toContainText('✓ 0.00');
-  // 出発ボタンは残るが、押しても止まるようにしてある
-  await expect(page.getByTestId('depart')).toHaveText(/もう1度 出発する/);
-  page.on('dialog', d => d.dismiss());
-  await page.getByTestId('depart').click();
-  await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
   await page.screenshot({ path: 'tests/shot-finished.png', fullPage: true });
+});
+
+test('運転後のあとでも、取り消さずに もう1度 出発できる', async ({ page }) => {
+  const at = (hm: string) => page.evaluate(t =>
+    (window as unknown as { setClock: (s: string) => void }).setClock(t), hm);
+
+  await unlock(page);
+  await at('09:00'); await page.getByTestId('alc-record-運転前').click();
+  await at('09:10'); await page.getByTestId('depart').click();
+  await at('09:40'); await page.getByTestId('return').click();
+  await page.getByTestId('finish').click();
+  await at('09:45'); await page.getByRole('button', { name: /本日の運転を終える/ }).click();
+  await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
+
+  // 取り消しを求めず、そのまま出発できる
+  await at('14:00'); await page.getByTestId('depart').click();
+  await expect(page.getByTestId('enroute')).toContainText('運行中');
+  await at('14:50'); await page.getByTestId('return').click();
+  await page.getByTestId('finish').click();
+
+  // 戻ったら「記録し直してください」に変わる。運転後は残ったまま
+  await expect(page.getByTestId('today')).toContainText('記録し直してください');
+  await expect(page.getByTestId('alc-運転後')).toContainText('✓ 0.00');
+  await expect(page.getByRole('button', { name: /記録し直す/ })).toBeVisible();
+
+  await page.getByRole('button', { name: /記録し直す/ }).click();
+  await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
 });
 
 test('運行をリセットすると記録が残らない', async ({ page }) => {

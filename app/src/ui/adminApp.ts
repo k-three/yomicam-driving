@@ -29,6 +29,9 @@ const fixButton = (f: Finding) =>
 
 type Tab = 'board' | 'report';
 
+/** 画面を描き直す間隔。時計と経過時間を進めるためだけに使う */
+const REFRESH_MS = 30_000;
+
 export class AdminApp {
   private snap: Snapshot | null = null;
   private tab: Tab = 'board';
@@ -41,6 +44,11 @@ export class AdminApp {
     this.banner = banner;
     store.subscribe(s => { this.snap = s; this.render(); });
     attachTooltip(root);
+    // 記録に動きが無くても、経過時間と「現在」の線は進める。
+    // これが無いと、開きっぱなしの画面が止まって見える。
+    setInterval(() => {
+      if (this.tab === 'board' && !document.querySelector('dialog[open]')) this.render();
+    }, REFRESH_MS);
   }
 
   private get config(): Config { return this.snap!.config; }
@@ -87,11 +95,7 @@ export class AdminApp {
     const s = this.snap!;
     const now = hhmm();
     const board = buildBoard(s.trips, s.checks, now, ALERT);
-    const rows = [
-      ...board.running.map(r => ({ trip: r.trip, worries: r.worries })),
-      ...board.done.map(t => ({ trip: t, worries: [] as string[] })),
-    ];
-    return renderTimeline(rows, now) + renderBoard(board, s.today, now) + this.fixList();
+    return renderTimeline(board.lanes, now) + renderBoard(board, s.today, now) + this.fixList();
   }
 
   /** その日の記録を1件ずつ直せるようにする。時系列の表からは直接たどれないため */

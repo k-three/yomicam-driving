@@ -47,6 +47,9 @@ export class MemoryStore implements Store {
                   { school: '喜名小学校', arriveAt: '14:16', departAt: '', count: 0 }] }),
       t({ id: 's3', vehicle: 'パッソ', driver: '運転者H', base: '自宅', departAt: '12:10',
           stops: [{ school: '読谷小学校', arriveAt: '12:31', departAt: '12:44', count: 1 }] }),
+      // 同じ車両の2本目。時系列では1行にまとまる
+      t({ id: 's4', vehicle: 'ハイエース', driver: '運転者J', departAt: '14:05',
+          stops: [{ school: '喜名小学校', arriveAt: '14:15', departAt: '', count: 0 }] }),
     ];
     this.checks = [
       { id: 'c1', date: d, kind: '運転前', driver: '運転者J', vehicle: 'ハイエース', at: '12:55',

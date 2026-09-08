@@ -1,6 +1,5 @@
 /** 管理者向けの進捗ダッシュボード。運転手アプリとは別の入口・別の権限で開く。 */
 import type { Board } from '../domain/status';
-import { hm } from '../domain/time';
 import { totalCount } from '../domain/reports';
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
@@ -19,17 +18,6 @@ export function renderBoard(b: Board, today: string, nowHm: string): string {
     b.alerts ? `⚠ 要確認 ${b.alerts}件` : '✓ 異常なし'}</span>
   <span class="when">${esc(today)}　最終更新 ${esc(nowHm)}</span>
 </div>
-
-<section><h2>いま動いている車両（${b.running.length}台）</h2>
-${table(['状態', '車両', '運転者', '出発', '経過', '現在地', '乗車', '気になる点'],
-  b.running.map(r => `<tr class="${r.worries.length ? 'alert' : ''}" data-testid="running-row">
-    <td class="name">${r.worries.length ? '⚠ 要確認' : '🚐 運行中'}</td>
-    <td class="name">${esc(r.trip.vehicle)}</td><td class="name">${esc(r.trip.driver)}</td>
-    <td class="num">${esc(r.trip.departAt)}</td><td class="num">${hm(r.elapsedMin)}</td>
-    <td>${esc(r.place)}</td><td class="num">${r.onboard}</td>
-    <td class="${r.worries.length ? 'worry' : ''}">${esc(r.worries.join(' ／ '))}</td></tr>`),
-  '運行中の車両はありません')}
-</section>
 
 <section><h2>本日の完了運行（${b.done.length}件）</h2>
 ${table(['時間帯', '車両', '運転者', '乗車', '到着場所', '経由・備考'],

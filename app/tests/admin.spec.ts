@@ -11,7 +11,12 @@ test('サンプル無しでも開ける', async ({ page }) => {
 test('運行中の動きが時系列で並ぶ', async ({ page }) => {
   await page.goto('admin.html?mock=1');
   await expect(page.getByRole('heading', { name: /いまの動き/ })).toBeVisible();
+  // 同じ車両が1日に何回運行しても1行にまとまる（ハイエースは2回運行）
   await expect(page.getByTestId('tl-row')).toHaveCount(3);
+  const van = page.getByTestId('tl-row').filter({ hasText: 'ハイエース' });
+  await expect(van).toHaveCount(1);
+  await expect(van).toContainText('運行中');
+  await expect(van).toContainText('喜名小学校');   // いまどこにいるか
 
   // 3状態の凡例がそろっている（色だけに頼らせない）
   for (const t of ['児童を乗せて移動', '学校で待機', '回送（空車で移動）'])
@@ -42,7 +47,9 @@ test('運行の記録をその場で直せる', async ({ page }) => {
   await dialog.getByLabel('状態').selectOption('done');
   await dialog.getByRole('button', { name: '保存する' }).click();
 
-  await expect(page.getByTestId('running-row')).toHaveCount(1);
+  // 「いま動いている車両」の表は廃止し、時系列の各行に寄せてある
+  await expect(page.getByTestId('tl-row').filter({ hasText: 'パッソ' }))
+    .toContainText('待機中');
   await expect(page.getByTestId('done-row')).toHaveCount(2);
 });
 

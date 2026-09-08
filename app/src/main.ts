@@ -8,12 +8,18 @@ import { FirestoreStore } from './store/firestore';
 import { currentDriverUser, signInDriver } from './store/auth';
 import { passwordGate } from './ui/gate';
 import { toast } from './ui/toast';
+import { setNow } from './store/clock';
 import { MOCK_PASSWORD } from './config';
 
 const root = document.getElementById('app')!;
 const NOTE = '運転手用のパスワードを入力してください。';
 
 if (new URLSearchParams(location.search).get('mock') === '1') {
+  // 自動テストから時刻を進められるようにする。?mock=1 のときだけ生やす
+  (window as unknown as { setClock?: (hm: string) => void }).setClock = hm => {
+    const [h, m] = hm.split(':').map(Number);
+    const d = new Date(); d.setHours(h ?? 0, m ?? 0, 0, 0); setNow(d);
+  };
   const store = new MemoryStore();
   passwordGate(root, {
     title: '送迎記録', note: NOTE,

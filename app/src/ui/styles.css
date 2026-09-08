@@ -50,11 +50,12 @@ button{font-family:inherit;cursor:pointer}
   padding:10px;width:100%}
 .link.danger{color:var(--danger)}
 .note{font-size:13px;color:var(--muted);margin:8px 2px 0}
-.log{display:flex;align-items:center;gap:10px;padding:8px 0;
+.log{display:flex;align-items:center;gap:10px;padding:9px 0;
   border-bottom:1px solid var(--line);font-size:14px}
 .log:last-child{border-bottom:none}
-.log .time{font-weight:700;font-variant-numeric:tabular-nums}
-.log .desc{flex:1;color:var(--muted)}
+.log .body{flex:1;min-width:0}
+.log .time{display:block;font-weight:700;font-variant-numeric:tabular-nums}
+.log .desc{display:block;color:var(--muted);font-size:13px;margin-top:2px;line-height:1.5}
 .log .mini{flex:none;text-decoration:none;font-weight:700;border-radius:999px;
   padding:6px 14px;background:var(--chip);color:var(--ink)}
 /* ログイン画面。運転手アプリと管理画面で共通 */

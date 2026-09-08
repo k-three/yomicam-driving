@@ -11,7 +11,22 @@ export type RunningRow = {
 export type AlcoholRow = { driver: string; pre?: AlcoholCheck; post?: AlcoholCheck; state: string; ng: boolean };
 export type Event = { at: string; vehicle: string; what: string; place: string; count: number | '' };
 
+/** 車両1台ぶんの本日のすべて。時系列の帯と現在地を、車両ごとに1行で見せるための単位。
+ *  同じ車両が1日に何回運行しても1行にまとまる。 */
+export type Lane = {
+  vehicle: string;
+  driver: string;          // 直近の運転者
+  trips: Trip[];           // 本日その車両で走ったぶん（運行中を含む・出発順）
+  running: boolean;
+  /** いまどこにいるか。運行中なら現在地、終わっていれば帰着した場所と時刻 */
+  place: string;
+  elapsedMin: number;      // 運行中の経過。終わっていれば直近の運行の所要
+  onboard: number;
+  worries: string[];
+};
+
 export type Board = {
+  lanes: Lane[];
   running: RunningRow[];
   done: Trip[];
   alcohol: AlcoholRow[];
@@ -80,6 +95,26 @@ export function buildBoard(
   }
   events.sort((a, b) => (isAfter(a.at, b.at) ? -1 : a.at === b.at ? 0 : 1));
 
+  // 車両ごとに1行へまとめる。同じ車両が1日に何回走っても1行。
+  const byVehicle = new Map<string, Trip[]>();
+  for (const t of [...trips].sort((a, b) => (a.departAt < b.departAt ? -1 : 1)))
+    byVehicle.set(t.vehicle, [...(byVehicle.get(t.vehicle) ?? []), t]);
+
+  const lanes: Lane[] = [...byVehicle.entries()].map(([vehicle, list]) => {
+    const run = running.find(r => r.trip.vehicle === vehicle);
+    const last = list[list.length - 1]!;
+    if (run) return {
+      vehicle, driver: run.trip.driver, trips: list, running: true,
+      place: run.place, elapsedMin: run.elapsedMin, onboard: run.onboard, worries: run.worries,
+    };
+    return {
+      vehicle, driver: last.driver, trips: list, running: false,
+      place: `${last.dest || '拠点'} に ${last.returnAt || '（未記録）'} 帰着`,
+      elapsedMin: elapsed(last.departAt, last.returnAt),
+      onboard: totalCount(last), worries: [],
+    };
+  }).sort((a, b) => (a.running === b.running ? 0 : a.running ? -1 : 1));
+
   const alerts = running.filter(r => r.worries.length).length + alcohol.filter(a => a.ng).length;
-  return { running, done, alcohol, events, alerts };
+  return { lanes, running, done, alcohol, events, alerts };
 }

@@ -153,8 +153,13 @@ export class App {
     const done = mine.length;
     // 最後に拠点へ戻った時刻。運転を終える判断のよりどころになる
     const lastBack = mine.map(t => t.returnAt).filter(Boolean).sort().slice(-1)[0] ?? '';
+    // 運転後を記録したあとにもう1度運転したら、記録し直しが要る。
+    // 取り消しは求めない（記録簿は最後の運転後を採るので、上書きでよい）
+    const postStale = !!post && !!lastBack && post.at < lastBack;
 
-    const step = !pre ? 'before' : !post ? (done ? 'driving' : 'ready') : 'finished';
+    const step = !pre ? 'before'
+      : (!post || postStale) ? (done ? 'driving' : 'ready')
+      : 'finished';
 
     let h = `<div class="today" data-testid="today" data-step="${step}">
       <b>${{
@@ -166,7 +171,9 @@ export class App {
       <span>${{
         before: '検知器で測ってから記録してください',
         ready: '運転を終えるときに、運転後のチェックを記録します',
-        driving: '運転を終えるときは、<b>必ず運転後のアルコールチェックを記録</b>してください（法定の記録です）',
+        driving: postStale
+          ? 'その後もう1度運転しているので、<b>運転後のチェックを記録し直してください</b>（最後の記録が採用されます）'
+          : '運転を終えるときは、<b>必ず運転後のアルコールチェックを記録</b>してください（法定の記録です）',
         finished: `運転後 ${esc(post?.at ?? '')} に記録済み。おつかれさまでした`,
       }[step]}</span></div>`;
 
@@ -179,25 +186,31 @@ export class App {
       h += `<button class="big" data-testid="depart" disabled>🚐 出発する</button>
         <p class="note" style="text-align:center">先に上の「運転前」を記録してください。</p>`;
     } else if (step === 'finished') {
-      // 運転後を記録したあとの出発は、記録の辻褄が合わなくなる。押しにくくして理由も出す
-      h += `<button class="big secondary" data-testid="depart">🚐 もう1度 出発する</button>
+      // 運転後のあとでも、そのまま出発してよい。戻ってきたら記録し直せばよく、
+      // 記録簿には最後の運転後が載る（取り消しの手間を求めない）
+      h += `<button class="big secondary" data-testid="depart">🚐 もう1度 出発する（本日 ${done + 1} 回目）</button>
         <p class="note" style="text-align:center">
-          運転後のチェックを記録済みです。もう1度運転する場合は、
-          上の「運転後」を取り消してから出発してください。</p>`;
+          出発できます。戻ったあとに、運転後のチェックをもう1度記録してください。</p>`;
     } else {
       h += `<button class="big" data-testid="depart">🚐 ${done ? `もう1度 出発する（本日 ${done + 1} 回目）` : '出発する'}</button>`;
       if (done) h += `<button class="big secondary" data-testid="alc-record-運転後-main"
-        data-quick="運転後">🏁 本日の運転を終える</button>
+        data-quick="運転後">🏁 本日の運転を終える${postStale ? '（記録し直す）' : ''}</button>
         <p class="note" style="text-align:center">運転後のアルコールチェックを記録します</p>`;
     }
 
     // 本日の運行。自分が運転したものは、その場で直せる（前日以前は管理者が直す）
     const all = this.snap!.trips.filter(t => t.status === 'done');
-    if (all.length) h += `<div class="card"><h2>本日の運行（全車両）</h2>${all.map(t =>
-      `<div class="log"><span class="time">${esc(t.departAt)}〜${esc(t.returnAt)}</span>
-        <span class="desc">${esc(t.vehicle)}・${esc(t.driver)}・${totalCount(t)}人</span>${
+    if (all.length) h += `<div class="card"><h2>本日の運行（全車両）</h2>${all.map(t => {
+      const via = t.stops.map(x =>
+        `${x.school}${x.count ? ` ${x.count}人` : ' 乗車なし'}`).join(' → ') || '立ち寄りなし';
+      return `<div class="log">
+        <span class="body">
+          <span class="time">${esc(t.departAt)}〜${esc(t.returnAt)}　${esc(t.vehicle)}・${esc(t.driver)}</span>
+          <span class="desc">${esc(via)}　<b>合計 ${totalCount(t)}人</b></span>
+        </span>${
         t.driver === this.driver ? `<button class="mini" data-fix="${esc(t.id)}">修正</button>` : ''
-      }</div>`).join('')}
+      }</div>`;
+    }).join('')}
       <p class="note">自分が運転したぶんは「修正」から直せます（本日ぶんのみ）。</p></div>`;
     return h;
   }
@@ -262,11 +275,6 @@ export class App {
     });
 
     q('[data-testid=depart]')?.addEventListener('click', () => {
-      // 運転後を記録したあとに出発すると、記録簿の辻褄が合わなくなる。一度止める
-      if (this.check('運転後') && !confirm(
-        '本日の「運転後」アルコールチェックを記録済みです。\n\n'
-        + 'このまま出発すると、記録簿の順序が合わなくなります。\n'
-        + '運転後を取り消してから出発することをおすすめします。\n\nこのまま出発しますか？')) return;
       const base = localStorage.getItem(BASE_KEY) ?? this.config.bases[0] ?? '拠点';
       this.run(() => this.store.startTrip({ vehicle: this.vehicle, driver: this.driver, base }), '出発を記録');
     });
