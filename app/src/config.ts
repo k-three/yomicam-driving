@@ -20,3 +20,7 @@ export const ALERT = {
   stayMin: 30,    // 学校に着いてからこれを超えて乗車の記録がない
   tripMin: 120,   // 運行が終わらない（終了の押し忘れ）
 };
+
+/** ビルド時に埋め込まれる版数（vite.config.ts の define）。開発中は 'dev' */
+declare const __BUILD__: string | undefined;
+export const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';

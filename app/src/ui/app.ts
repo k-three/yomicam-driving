@@ -8,6 +8,8 @@ import { InputError, type Snapshot, type Store } from '../store/store';
 import { normResult } from '../domain/time';
 import { totalCount } from '../domain/reports';
 import { toast } from './toast';
+import { openTripEditor } from './edit';
+import { BUILD } from '../config';
 
 const DRIVER_KEY = 'yd-driver', VEHICLE_KEY = 'yd-vehicle', BASE_KEY = 'yd-base';
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
@@ -82,7 +84,8 @@ export class App {
       : t ? (this.openStop(t) ? this.viewAtSchool(t) : this.viewEnroute(t))
       : this.viewIdle();
 
-    this.root.innerHTML = this.header() + body;
+    this.root.innerHTML = this.header() + body
+      + `<p class="build">版 ${esc(BUILD)}</p>`;
     this.bind();
   }
 
@@ -148,21 +151,22 @@ export class App {
     const pre = this.check('運転前'), post = this.check('運転後');
     const mine = this.snap!.trips.filter(t => t.status === 'done' && t.driver === this.driver);
     const done = mine.length;
+    // 最後に拠点へ戻った時刻。運転を終える判断のよりどころになる
+    const lastBack = mine.map(t => t.returnAt).filter(Boolean).sort().slice(-1)[0] ?? '';
 
-    // いまの段階。これを見出しに出す
     const step = !pre ? 'before' : !post ? (done ? 'driving' : 'ready') : 'finished';
 
     let h = `<div class="today" data-testid="today" data-step="${step}">
       <b>${{
         before: '① 運転前のアルコールチェックから',
         ready: '② 出発できます',
-        driving: `② 本日 ${done}回 運行しました`,
+        driving: `② 本日 ${done}回 運行しました${lastBack ? `（最後に拠点へ戻ったのは ${esc(lastBack)}）` : ''}`,
         finished: '✅ 本日の運転は終了しました',
       }[step]}</b>
       <span>${{
         before: '検知器で測ってから記録してください',
         ready: '運転を終えるときに、運転後のチェックを記録します',
-        driving: 'もう1度出発するか、運転を終えて運転後のチェックを記録します',
+        driving: '運転を終えるときは、<b>必ず運転後のアルコールチェックを記録</b>してください（法定の記録です）',
         finished: `運転後 ${esc(post?.at ?? '')} に記録済み。おつかれさまでした`,
       }[step]}</span></div>`;
 
@@ -187,10 +191,14 @@ export class App {
         <p class="note" style="text-align:center">運転後のアルコールチェックを記録します</p>`;
     }
 
+    // 本日の運行。自分が運転したものは、その場で直せる（前日以前は管理者が直す）
     const all = this.snap!.trips.filter(t => t.status === 'done');
     if (all.length) h += `<div class="card"><h2>本日の運行（全車両）</h2>${all.map(t =>
       `<div class="log"><span class="time">${esc(t.departAt)}〜${esc(t.returnAt)}</span>
-        <span class="desc">${esc(t.vehicle)}・${esc(t.driver)}・${totalCount(t)}人</span></div>`).join('')}</div>`;
+        <span class="desc">${esc(t.vehicle)}・${esc(t.driver)}・${totalCount(t)}人</span>${
+        t.driver === this.driver ? `<button class="mini" data-fix="${esc(t.id)}">修正</button>` : ''
+      }</div>`).join('')}
+      <p class="note">自分が運転したぶんは「修正」から直せます（本日ぶんのみ）。</p></div>`;
     return h;
   }
 
@@ -285,6 +293,15 @@ export class App {
       this.returning = false;
       this.run(() => this.store.finishTrip(t.id, input), '運行を記録しました');
     });
+    this.root.querySelectorAll<HTMLElement>('[data-fix]').forEach(b => b.onclick = () => {
+      const trip = this.snap!.trips.find(x => x.id === b.dataset.fix);
+      if (!trip) return;
+      openTripEditor(trip, this.config, {
+        save: patch => this.run(() => this.store.editTrip(trip.id, patch), '記録を直しました'),
+        remove: () => this.run(() => this.store.cancelTrip(trip.id), '記録を削除しました'),
+      });
+    });
+
     q('[data-testid=undo]')?.addEventListener('click', () => {
       if (t) { this.selCount = null; this.run(() => this.store.undoLast(t.id), '取り消しました'); }
     });

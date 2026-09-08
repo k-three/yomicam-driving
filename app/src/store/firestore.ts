@@ -24,6 +24,10 @@ import { fbDb } from './firebase';
 /** 日付の切り替わりを見に行く間隔 */
 const DAY_WATCH_MS = 30_000;
 
+/** 'YYYY-MM-DD' → 20260908。セキュリティルールで「当日の記録か」を判定するために持たせる。
+ *  文字列の日付のままだと、ルール側で日付の比較ができない。 */
+const ymdOf = (date: string) => Number(date.replace(/-/g, '')) || 0;
+
 type Doc = Record<string, unknown>;
 
 /** Firestore から来た値を型どおりに整える。欠けたフィールドで画面を壊さない */
@@ -202,8 +206,9 @@ export class FirestoreStore implements Store {
     const at = hhmm();
     const id = `${d.replace(/-/g, '')}-${vehicle}-${at.replace(':', '')}`;
     this.send(setDoc(doc(this.db, 'trips', id), {
-      date: d, vehicle, driver, base, departAt: at, dest: '読谷村文化センター', returnAt: '',
-      stops: [], mokushi: false, handover: false, note: '', status: 'running', createdBy: this.uid,
+      date: d, ymd: ymdOf(d), vehicle, driver, base, departAt: at,
+      dest: '読谷村文化センター', returnAt: '', stops: [],
+      mokushi: false, handover: false, note: '', status: 'running', createdBy: this.uid,
     }));
   }
 
@@ -254,7 +259,8 @@ export class FirestoreStore implements Store {
   }
 
   async addAlcohol(input: Omit<AlcoholCheck, 'id'>) {
-    this.send(addDoc(collection(this.db, 'alcohol'), { ...input, createdBy: this.uid }));
+    this.send(addDoc(collection(this.db, 'alcohol'),
+      { ...input, ymd: ymdOf(input.date), createdBy: this.uid }));
   }
 
   async editAlcohol(id: string, patch: AlcoholPatch) {
@@ -286,7 +292,7 @@ export class FirestoreStore implements Store {
         !this.checks.some(c => c.kind === '運転前' && c.driver === input.driver))
       throw new InputError('先に運転前のアルコールチェックを記録してください。');
     this.send(addDoc(collection(this.db, 'alcohol'),
-      { ...input, date: this.day, at: hhmm(), createdBy: this.uid }));
+      { ...input, date: this.day, ymd: ymdOf(this.day), at: hhmm(), createdBy: this.uid }));
   }
 
   async undoAlcohol(kind: AlcoholCheck['kind'], driver: string) {

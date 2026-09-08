@@ -50,10 +50,13 @@ button{font-family:inherit;cursor:pointer}
   padding:10px;width:100%}
 .link.danger{color:var(--danger)}
 .note{font-size:13px;color:var(--muted);margin:8px 2px 0}
-.log{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.log{display:flex;align-items:center;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--line);font-size:14px}
 .log:last-child{border-bottom:none}
 .log .time{font-weight:700;font-variant-numeric:tabular-nums}
-.log .desc{color:var(--muted)}
+.log .desc{flex:1;color:var(--muted)}
+.log .mini{flex:none;text-decoration:none;font-weight:700;border-radius:999px;
+  padding:6px 14px;background:var(--chip);color:var(--ink)}
 /* ログイン画面。運転手アプリと管理画面で共通 */
 .signin{max-width:380px;margin:16vh auto;text-align:center}
 .signin .logo{font-weight:900;font-size:19px;margin-bottom:14px}
@@ -92,7 +95,11 @@ button{font-family:inherit;cursor:pointer}
 .today b{display:block;font-size:16px;font-weight:900}
 .today span{display:block;font-size:12.5px;margin-top:3px;opacity:.85}
 .today[data-step="before"]{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
-.today[data-step="ready"],
-.today[data-step="driving"]{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent)}
+.today[data-step="ready"]{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent)}
+/* 運行後・運転後チェック前。法定の記録が残っている状態なので注意の色にする */
+.today[data-step="driving"]{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
 .today[data-step="finished"]{background:var(--chip);border:1px solid var(--line);color:var(--ink)}
 .big + .big{margin-top:10px}
+
+/* いま見ている版。古い画面が残っていないかを確かめるために出す */
+.build{text-align:center;color:var(--muted);font-size:11px;margin:22px 0 0;opacity:.7}

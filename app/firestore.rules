@@ -4,10 +4,15 @@ rules_version = '2';
  * 権限の分け方
  *
  *   運転手  … 運転手用アカウント（パスワードのみでログイン）。
- *             記録の追加と、運行中の記録の更新・削除だけができる。
- *             確定した記録の書き換えや削除はできない。
+ *             記録の追加と、**当日の記録**の修正ができる。
+ *             前日以前の記録は読めるだけで、直せない。
  *   管理者  … 管理者用アカウント。さらに admins に自分の uid の文書がある人だけ。
  *             すべての記録の修正・削除、マスタの変更ができる。
+ *
+ * 「当日だけ直せる」線を引いているのは、運転手が自分の打ち間違いをその場で
+ * 直せるようにしつつ、月次で提出したあとの帳簿が動かないようにするため。
+ * 判定には記録が持つ ymd（20260908 のような数値）を使う。日本時間で数えるので、
+ * サーバ時刻に9時間足してから比べる。
  *
  * パスワードは Firebase 側で照合されるので、ここでは「ログインできた人」を
  * 信頼してよい。匿名ログインは明示的に締め出してある（Authentication で
@@ -20,13 +25,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 匿名ログインは通さない。読み取りも書き込みも、必ずパスワードを通った人だけ
+    // 匿名ログインは通さない。読み書きとも、必ずパスワードを通った人だけ
     function member() {
       return request.auth != null
         && request.auth.token.firebase.sign_in_provider == 'password';
     }
     function isAdmin() {
       return member() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // 日本時間の今日。20260908 のような数値にして比べる
+    function jst() { return request.time + duration.value(9, 'h'); }
+    function todayNum() { return jst().year() * 10000 + jst().month() * 100 + jst().day(); }
+    function isToday() { return resource.data.get('ymd', 0) == todayNum(); }
+    // 日付を後から動かせないようにする（別の月へ付け替えるのを防ぐ）
+    function sameDay() {
+      return request.resource.data.get('ymd', 0) == resource.data.get('ymd', 0)
+        && request.resource.data.get('date', '') == resource.data.get('date', '');
     }
     function running() { return resource.data.status == 'running'; }
 
@@ -44,23 +59,26 @@ service cloud.firestore {
 
     match /trips/{id} {
       allow read: if member();
-      // 運転手アプリからの新規は必ず運行中として作る。過去日の後付けは管理者のみ
+      // 運転手アプリからの新規は、当日・運行中としてしか作れない。
+      // 過去日の後付けは管理者のみ
       allow create: if isAdmin()
         || (member() && request.resource.data.status == 'running'
-            && request.resource.data.createdBy == request.auth.uid);
-      // 運転手が触れるのは運行中のものだけ。確定した記録は管理者しか直せない
-      allow update: if isAdmin() || (member() && running());
-      // 運行のリセット。確定済みは管理者のみ
-      allow delete: if isAdmin() || (member() && running());
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.ymd == todayNum());
+      // 運転手が直せるのは当日の記録だけ。日付は動かせない
+      allow update: if isAdmin() || (member() && isToday() && sameDay());
+      // 運行のリセット。確定した記録の削除は管理者のみ
+      allow delete: if isAdmin() || (member() && isToday() && running());
     }
 
     match /alcohol/{id} {
       allow read: if member();
       allow create: if isAdmin()
-        || (member() && request.resource.data.createdBy == request.auth.uid);
-      // 誤タップの取消。確定した帳簿の整理は管理者が行う
-      allow update, delete: if isAdmin()
-        || (member() && resource.data.createdBy == request.auth.uid);
+        || (member() && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.ymd == todayNum());
+      // 誤タップの取消と直し。前日以前の記録簿は管理者だけが触れる
+      allow update: if isAdmin() || (member() && isToday() && sameDay());
+      allow delete: if isAdmin() || (member() && isToday());
     }
   }
 }

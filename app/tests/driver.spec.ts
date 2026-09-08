@@ -123,3 +123,27 @@ test('ログイン画面を撮る', async ({ page }) => {
   await expect(page.getByTestId('pw-error')).toHaveText('パスワードが違います');
   await page.screenshot({ path: 'tests/shot-login-ng.png' });
 });
+
+test('自分の運行を、その場で直せる', async ({ page }) => {
+  await unlock(page);
+  await page.getByTestId('alc-record-運転前').click();
+  await page.getByTestId('depart').click();
+  await page.getByRole('button', { name: /渡慶次小学校/ }).click();
+  await page.getByRole('button', { name: '2', exact: true }).click();
+  await page.getByTestId('board').click();
+  await page.getByTestId('return').click();
+  await page.getByTestId('finish').click();
+
+  // 最後に拠点へ戻った時刻が出ている
+  await expect(page.getByTestId('today')).toContainText('最後に拠点へ戻ったのは');
+
+  await page.getByRole('button', { name: '修正' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('拠点到着時刻').fill('17:30');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+
+  await expect(page.getByTestId('today')).toContainText('最後に拠点へ戻ったのは 17:30');
+  await expect(page.getByText(/〜17:30/)).toBeVisible();
+  await page.screenshot({ path: 'tests/shot-driving.png', fullPage: true });
+});
