@@ -13,6 +13,7 @@ import { renderBoard } from './board';
 import { renderTimeline, attachTooltip } from './timeline';
 import { openAlcoholEditor, openConfigEditor, openTripEditor } from './edit';
 import { printSheets } from './print';
+import { removeTripAndAsk } from './remove';
 import { toast } from './toast';
 import { buildXlsx, download } from '../export/xlsx';
 import { hhmm, today } from '../store/clock';
@@ -185,29 +186,6 @@ export class AdminApp {
     return this.snap!.checks.find(c => c.id === id) ?? this.data?.checks.find(c => c.id === id);
   }
 
-  /**
-   * 運行を削除する。アルコールチェックは運行に紐づかない独立した法定記録なので、
-   * 自動では消さない（1日に何回運行してもチェックは1組だし、運転しなかった日でも
-   * 実施したなら記録は残る）。ただし、その運転者の運行が1件も無くなる場合は
-   * 試し入力の可能性が高いので、まとめて消すかどうかをここで聞く。
-   */
-  private removeTrip(t: Trip) {
-    const others = this.snap!.trips.filter(x => x.id !== t.id && x.driver === t.driver);
-    const checks = this.snap!.checks.filter(c => c.driver === t.driver);
-    this.run(async () => {
-      await this.store.cancelTrip(t.id);
-      if (others.length || !checks.length) return;
-      const ok = confirm(
-        `${t.driver} さんの本日の運行は、これで1件も無くなります。\n`
-        + `アルコールチェックの記録が ${checks.length}件 残ります。\n\n`
-        + `これも削除しますか？\n\n`
-        + `・試し入力だった → OK（削除する）\n`
-        + `・実際に確認を行った → キャンセル（記録簿に残す）`);
-      if (!ok) return;
-      for (const c of checks) await this.store.deleteAlcohol(c.id);
-    }, '運行を削除しました');
-  }
-
   private bind() {
     const on = (sel: string, fn: (el: HTMLElement) => void) =>
       this.root.querySelectorAll<HTMLElement>(sel).forEach(el => el.onclick = () => fn(el));
@@ -226,7 +204,7 @@ export class AdminApp {
       if (!t) return toast('その運行は見つかりませんでした');
       openTripEditor(t, this.config, {
         save: patch => this.run(() => this.store.editTrip(t.id, patch), '運行を修正しました'),
-        remove: () => this.removeTrip(t),
+        remove: () => this.run(() => removeTripAndAsk(this.store, this.snap!, t), '運行を削除しました'),
       });
     });
 

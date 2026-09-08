@@ -172,17 +172,22 @@ test('自分の運行を、その場で直せる', async ({ page }) => {
   await page.screenshot({ path: 'tests/shot-driving.png', fullPage: true });
 });
 
-test('運転手アプリからは、確定した運行を削除できない', async ({ page }) => {
-  // 削除はルールでも管理者だけに許しているので、ボタン自体を出さない
+test('誤って記録した運行を、運転手が自分で削除できる', async ({ page }) => {
+  const asked: string[] = [];
+  page.on('dialog', d => { asked.push(d.message()); d.accept(); });
+
   await unlock(page);
   await page.getByTestId('alc-record-運転前').click();
   await page.getByTestId('depart').click();
   await page.getByTestId('return').click();
   await page.getByTestId('finish').click();
+  await expect(page.getByText('本日の運行（全車両）')).toBeVisible();
 
   await page.getByRole('button', { name: '修正' }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button', { name: '保存する' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'この運行を削除' })).toHaveCount(0);
+  await page.getByRole('dialog').getByRole('button', { name: 'この運行を削除' }).click();
+
+  // 運行は消え、出発前の画面に戻る
+  await expect(page.getByText('本日の運行（全車両）')).toBeHidden();
+  // 残るアルコールチェックの扱いも聞かれる（法定記録なので自動では消さない）
+  expect(asked.join('\n')).toContain('アルコールチェックの記録が');
 });

@@ -4,7 +4,7 @@ rules_version = '2';
  * 権限の分け方
  *
  *   運転手  … 運転手用アカウント（パスワードのみでログイン）。
- *             記録の追加と、**当日の記録**の修正ができる。
+ *             記録の追加と、**当日の記録**の修正・削除ができる。
  *             前日以前の記録は読めるだけで、直せない。
  *   管理者  … 管理者用アカウント。さらに admins に自分の uid の文書がある人だけ。
  *             すべての記録の修正・削除、マスタの変更ができる。
@@ -43,7 +43,6 @@ service cloud.firestore {
       return request.resource.data.get('ymd', 0) == resource.data.get('ymd', 0)
         && request.resource.data.get('date', '') == resource.data.get('date', '');
     }
-    function running() { return resource.data.status == 'running'; }
 
     // 管理者の名簿。追加は Firebase コンソールから手で行う（誰も自分で昇格できない）
     match /admins/{uid} {
@@ -67,8 +66,9 @@ service cloud.firestore {
             && request.resource.data.ymd == todayNum());
       // 運転手が直せるのは当日の記録だけ。日付は動かせない
       allow update: if isAdmin() || (member() && isToday() && sameDay());
-      // 運行のリセット。確定した記録の削除は管理者のみ
-      allow delete: if isAdmin() || (member() && isToday() && running());
+      // 運行の取り消し。誤って記録したものを運転手が自分で消せるようにする。
+      // 当日ぶんに限る（前日以前の削除は管理者のみ）
+      allow delete: if isAdmin() || (member() && isToday());
     }
 
     match /alcohol/{id} {

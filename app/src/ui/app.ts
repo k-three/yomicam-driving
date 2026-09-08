@@ -9,6 +9,7 @@ import { normResult } from '../domain/time';
 import { totalCount } from '../domain/reports';
 import { toast } from './toast';
 import { openTripEditor } from './edit';
+import { removeTripAndAsk } from './remove';
 import { BUILD } from '../config';
 
 const DRIVER_KEY = 'yd-driver', VEHICLE_KEY = 'yd-vehicle', BASE_KEY = 'yd-base';
@@ -304,9 +305,11 @@ export class App {
     this.root.querySelectorAll<HTMLElement>('[data-fix]').forEach(b => b.onclick = () => {
       const trip = this.snap!.trips.find(x => x.id === b.dataset.fix);
       if (!trip) return;
-      // 削除は渡さない。確定した運行の削除は管理者だけができる（firestore.rules）
       openTripEditor(trip, this.config, {
         save: patch => this.run(() => this.store.editTrip(trip.id, patch), '記録を直しました'),
+        // 誤って記録した運行は、その場で消せる（当日ぶんのみ。firestore.rules）
+        remove: () => this.run(
+          () => removeTripAndAsk(this.store, this.snap!, trip), '記録を削除しました'),
       });
     });
 
