@@ -239,6 +239,11 @@ test('運転手も全車両の運行状況を見られる（直せはしない�
   // 直す導線は出ない（運転手は読み取りだけ）
   await expect(page.getByRole('button', { name: '修正' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '追記' })).toHaveCount(0);
+
+  // アルコールチェックは自分のぶんだけ。同僚の数値は出さない
+  await expect(page.getByTestId('alcohol-row')).toHaveCount(1);
+  await expect(page.getByTestId('alcohol-row')).toContainText('運転者H');
+  await expect(page.getByText('アルコールチェックは自分のぶんだけ')).toBeVisible();
   await page.screenshot({ path: 'tests/shot-driver-board.png', fullPage: true });
 
   // 「記録」に戻れば、いつもの操作ができる
@@ -279,4 +284,20 @@ test('0.00 以外の値と、対面以外の確認方法も記録できる', asy
   await page.getByRole('button', { name: '取消' }).click();
   await page.getByTestId('alc-record-運転前').click();
   await expect(page.getByTestId('depart')).toBeEnabled();
+});
+
+test('同僚のアルコールチェックは運転手の画面に出ない', async ({ page }) => {
+  await unlock(page);
+  await page.getByTestId('alc-record-運転前').click();
+
+  // 別の運転者に切り替えて記録すると、2人ぶんの記録ができる
+  await page.getByTestId('pick-driver').click();
+  await page.getByRole('button', { name: '運転者J' }).click();
+  await page.getByTestId('alc-record-運転前').click();
+
+  await page.getByRole('button', { name: '運行状況' }).click();
+  // いま選んでいる運転者のぶんだけが見える
+  await expect(page.getByTestId('alcohol-row')).toHaveCount(1);
+  await expect(page.getByTestId('alcohol-row')).toContainText('運転者J');
+  await expect(page.getByText('運転者H')).toHaveCount(0);
 });

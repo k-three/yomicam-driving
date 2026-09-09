@@ -119,10 +119,18 @@ export class App {
     if (!this.snap) { this.root.innerHTML = '<p class="note">読み込み中…</p>'; return; }
     const now = hhmm();
     const board = buildBoard(this.snap.trips, this.snap.checks, now, ALERT);
+    // アルコールチェックの数値は本人と管理者だけが見るものとし、
+    // 運転手の画面では自分のぶんだけ出す。要確認の件数も、見えているものに合わせる
+    const mine = board.alcohol.filter(a => a.driver === this.driver);
+    const view = { ...board, alcohol: mine,
+      alerts: board.running.filter(r => r.worries.length).length + mine.filter(a => a.ng).length };
+
     this.root.innerHTML = this.header()
-      + renderTimeline(board.lanes, now, false)
-      + renderBoard(board, this.snap.today, now, false)
-      + `<p class="note" style="text-align:center">見るだけの画面です。記録の修正は「記録」から行えます。</p>`
+      + renderTimeline(view.lanes, now, false)
+      + renderBoard(view, this.snap.today, now, false)
+      + `<p class="note" style="text-align:center">見るだけの画面です。
+          アルコールチェックは自分のぶんだけ表示しています。<br>
+          記録の修正は「記録」から行えます。</p>`
       + `<p class="build">版 ${esc(BUILD)}</p>`;
     this.bind();
     attachTooltip(this.root);
