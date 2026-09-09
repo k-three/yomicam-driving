@@ -9,14 +9,21 @@ import { normResult } from '../domain/time';
 import { totalCount } from '../domain/reports';
 import { toast } from './toast';
 import { openTripEditor } from './edit';
+import { buildBoard } from '../domain/status';
+import { renderBoard } from './board';
+import { renderTimeline, attachTooltip } from './timeline';
+import { ALERT } from '../config';
 import { removeTripAndAsk } from './remove';
 import { BUILD } from '../config';
+import { hhmm } from '../store/clock';
 
 const DRIVER_KEY = 'yd-driver', VEHICLE_KEY = 'yd-vehicle', BASE_KEY = 'yd-base';
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 
 type Picking = null | 'driver' | 'vehicle';
+/** 運転手アプリの表示。記録は自分の操作、運行状況は全車両を見るだけ */
+type View = 'record' | 'board';
 
 /** 「未送信」を出すまでの猶予。通常の保存はこれより速く届くので、画面に出さない */
 const PENDING_GRACE_MS = 5000;
@@ -28,6 +35,7 @@ export class App {
   private picking: Picking = null;
   private selCount: number | null = null;
   private returning = false;
+  private view: View = 'record';
   private busy = false;
   private pendingSince = 0;
   private pendingTimer: ReturnType<typeof setTimeout> | null = null;
@@ -76,6 +84,7 @@ export class App {
   }
 
   render() {
+    if (this.view === 'board') return this.renderBoardView();
     if (!this.snap) { this.root.innerHTML = '<p class="note">読み込み中…</p>'; return; }
     if (this.picking) return this.renderPicker(this.picking);
 
@@ -104,6 +113,21 @@ export class App {
     this.root.querySelector('[data-testid=pick-cancel]')!.addEventListener('click', () => { this.picking = null; this.render(); });
   }
 
+  /** 全車両の運行状況。運転手は読むだけ（直す導線は出さない）。
+   *  Firestore のルール上も運転手は読み取りができるので、追加の権限は要らない。 */
+  private renderBoardView() {
+    if (!this.snap) { this.root.innerHTML = '<p class="note">読み込み中…</p>'; return; }
+    const now = hhmm();
+    const board = buildBoard(this.snap.trips, this.snap.checks, now, ALERT);
+    this.root.innerHTML = this.header()
+      + renderTimeline(board.lanes, now, false)
+      + renderBoard(board, this.snap.today, now, false)
+      + `<p class="note" style="text-align:center">見るだけの画面です。記録の修正は「記録」から行えます。</p>`
+      + `<p class="build">版 ${esc(BUILD)}</p>`;
+    this.bind();
+    attachTooltip(this.root);
+  }
+
   private header() {
     // 電波が切れていても記録は端末に残る。ここは「まだ届いていない」ことだけを伝える。
     // ふつうの保存は一瞬で届くので、しばらく待っても届かないときだけ出す。
@@ -117,7 +141,11 @@ export class App {
       <div class="picks">
         <button class="pick${this.driver ? '' : ' unset'}" data-testid="pick-driver"><small>運転者</small><b>${esc(this.driver || '選ぶ')}</b></button>
         <button class="pick${this.vehicle ? '' : ' unset'}" data-testid="pick-vehicle"><small>車両</small><b>${esc(this.vehicle || '選ぶ')}</b></button>
-      </div>`;
+      </div>
+      <nav class="tabs">
+        <button class="tab${this.view === 'record' ? ' on' : ''}" data-view="record">記録</button>
+        <button class="tab${this.view === 'board' ? ' on' : ''}" data-view="board">運行状況</button>
+      </nav>`;
   }
 
   private viewSetup() {
@@ -274,6 +302,9 @@ export class App {
 
   private bind() {
     const q = <T extends HTMLElement>(sel: string) => this.root.querySelector<T>(sel);
+    this.root.querySelectorAll<HTMLElement>('[data-view]').forEach(b => b.onclick = () => {
+      this.view = b.dataset.view as View; this.render();
+    });
     q('[data-testid=pick-driver]')?.addEventListener('click', () => { this.picking = 'driver'; this.render(); });
     q('[data-testid=pick-vehicle]')?.addEventListener('click', () => { this.picking = 'vehicle'; this.render(); });
 

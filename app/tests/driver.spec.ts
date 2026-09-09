@@ -218,3 +218,23 @@ test('運行を全部消したら「終了しました」ではなく、チェ�
   await expect(page.getByTestId('alc-record-運転前')).toBeVisible();   // 未記録に戻る
   await expect(page.getByTestId('today')).toContainText('運転前のアルコールチェックから');
 });
+
+test('運転手も全車両の運行状況を見られる（直せはしない）', async ({ page }) => {
+  await unlock(page);
+  await page.getByTestId('alc-record-運転前').click();
+  await page.getByTestId('depart').click();
+
+  await page.getByRole('button', { name: '運行状況' }).click();
+  await expect(page.getByRole('heading', { name: /いまの動き/ })).toBeVisible();
+  await expect(page.getByTestId('tl-row').filter({ hasText: 'パッソ' })).toContainText('運行中');
+  await expect(page.getByText('見るだけの画面です')).toBeVisible();
+
+  // 直す導線は出ない（運転手は読み取りだけ）
+  await expect(page.getByRole('button', { name: '修正' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '追記' })).toHaveCount(0);
+  await page.screenshot({ path: 'tests/shot-driver-board.png', fullPage: true });
+
+  // 「記録」に戻れば、いつもの操作ができる
+  await page.getByRole('button', { name: '記録' }).click();
+  await expect(page.getByTestId('enroute')).toContainText('運行中');
+});

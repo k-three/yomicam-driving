@@ -12,6 +12,7 @@ import { toast } from './ui/toast';
 import { setNow } from './store/clock';
 
 const root = document.getElementById('app')!;
+document.body.classList.add('wide');   // 管理画面は横に広く使う
 const params = new URLSearchParams(location.search);
 const mock = params.get('mock') === '1' || params.has('sample');
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
