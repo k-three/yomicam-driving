@@ -2,7 +2,7 @@
  *  追記型のログではなく、いまの記録から毎回組み立てる派生ビューなので、
  *  取り消し・リセット・修正はそのまま反映され、消えたものは残らない。 */
 import type { AlcoholCheck, Trip } from './types';
-import { elapsed, hm, isAfter, normResult } from './time';
+import { elapsed, hm, isAfter, normResult, toMin } from './time';
 import { totalCount } from './reports';
 
 export type RunningRow = {
@@ -71,7 +71,11 @@ export function buildBoard(
   const alcohol = drivers.map<AlcoholRow>(driver => {
     const pre = pick('運転前', driver), post = pick('運転後', driver);
     const stillRunning = running.some(r => r.trip.driver === driver);
-    const drove = done.some(t => t.driver === driver);
+    const mine = done.filter(t => t.driver === driver);
+    const drove = mine.length > 0;
+    // 運転後を記録したあとにもう1度運転した場合。記録し直さないと記録簿が実態と合わない
+    const lastBack = mine.map(t => t.returnAt).filter(Boolean).sort().slice(-1)[0] ?? '';
+    const staleP = !!post && !!lastBack && isAfter(lastBack, post.at);
     let state = '✓ 記録済み', ng = false;
     if (!pre) { state = '⚠ 運転前が未記録'; ng = true; }
     else if (normResult(pre.result) !== '0.00') { state = '⚠ 検出あり。運行させないこと'; ng = true; }
@@ -81,6 +85,10 @@ export function buildBoard(
     else if (!drove && post) { state = '⚠ 運行の記録がないのにチェックだけある'; ng = true; }
     else if (!drove) state = '運転前のみ記録（まだ運行なし）';
     else if (!post) { state = '⚠ 運転後が未記録'; ng = true; }
+    else if (staleP) {
+      state = `⚠ 運転後（${post.at}）が最後の運行（${lastBack} 帰着）より前。記録し直しが必要`;
+      ng = true;
+    }
     return { driver, pre, post, state, ng };
   });
 
@@ -96,7 +104,8 @@ export function buildBoard(
     }
     if (t.status === 'done') push(t.returnAt, t.vehicle, '拠点に到着（運行終了）', t.dest, totalCount(t));
   }
-  events.sort((a, b) => (isAfter(a.at, b.at) ? -1 : a.at === b.at ? 0 : 1));
+  // 新しい順。文字列ではなく分に直して比べる（'9:05' と '09:05' が混ざっても崩れない）
+  events.sort((a, b) => (toMin(b.at) ?? 0) - (toMin(a.at) ?? 0));
 
   // 車両ごとに1行へまとめる。同じ車両が1日に何回走っても1行。
   const byVehicle = new Map<string, Trip[]>();

@@ -311,6 +311,10 @@ export class App {
         <span>車内の目視確認をした<small>置き去り防止。していない場合はタップして外す</small></span></button>
       <button class="toggle on" data-testid="handover"><span class="box">✓</span>
         <span>こどもを引き渡した<small>拠点の担当者に引き継いだ。していない場合はタップして外す</small></span></button>
+      <label class="memo"><span>メモ（任意）</span>
+        <textarea data-testid="note" rows="2"
+          placeholder="遅れの理由、道路の状況など"></textarea>
+        <small>ヒヤリハットは専用フォームへ。ここは運行の補足に使ってください</small></label>
       <button class="big" data-testid="finish">記録して終了</button>
       <button class="link" data-testid="return-cancel">戻る</button></div>`;
   }
@@ -380,9 +384,20 @@ export class App {
     q('[data-testid=finish]')?.addEventListener('click', () => {
       if (!t) return;
       const on = (id: string) => q(`[data-testid=${id}]`)?.classList.contains('on') ?? false;
-      const input = { dest: this.config.bases[0] ?? '拠点', mokushi: on('mokushi'), handover: on('handover'), note: '' };
+      const note = q<HTMLTextAreaElement>('[data-testid=note]')?.value.trim() ?? '';
+      const input = { dest: this.config.bases[0] ?? '拠点', mokushi: on('mokushi'), handover: on('handover'), note };
+      // 運転後を記録済みのまま、また運行した場合。閉じる前に気づいてもらう
+      const post = this.check('運転後');
       this.returning = false;
-      this.run(() => this.store.finishTrip(t.id, input), '運行を記録しました');
+      this.run(async () => {
+        await this.store.finishTrip(t.id, input);
+        if (post) alert(
+          '運行を記録しました。\n\n'
+          + `本日の「運転後」アルコールチェックは ${post.at} に記録済みですが、\n`
+          + 'そのあとにこの運行をしています。\n\n'
+          + '運転を終えるときは、「本日の運転を終える（記録し直す）」から\n'
+          + 'もう1度記録してください。');
+      }, '運行を記録しました');
     });
     this.root.querySelectorAll<HTMLElement>('[data-fix]').forEach(b => b.onclick = () => {
       const trip = this.snap!.trips.find(x => x.id === b.dataset.fix);

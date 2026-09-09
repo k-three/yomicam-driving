@@ -49,6 +49,7 @@ test('出発から拠点到着までを記録できる', async ({ page }) => {
 
   await expect(page.getByTestId('enroute')).toContainText('乗車 2人');
   await page.getByTestId('return').click();
+  await page.getByTestId('note').fill('道路工事で迂回した');
   await page.getByTestId('finish').click();
 
   await expect(page.getByText('本日の運行（全車両）')).toBeVisible();
@@ -60,7 +61,10 @@ test('出発から拠点到着までを記録できる', async ({ page }) => {
   await expect(page.getByTestId('today')).toContainText('本日 1回 運行しました');
   await expect(page.getByTestId('depart')).toHaveText(/もう1度 出発する（本日 2 回目）/);
   await expect(page.getByRole('button', { name: /本日の運転を終える/ })).toBeVisible();
-  await page.screenshot({ path: 'tests/shot-driving.png', fullPage: true });
+
+  // 入れたメモは、管理者が直す画面から確認できる
+  await page.getByRole('button', { name: '修正' }).click();
+  await expect(page.getByRole('dialog').getByLabel('特記')).toHaveValue('道路工事で迂回した');
 });
 
 test('運転後を記録すると、終了したことが画面で分かる', async ({ page }) => {
@@ -91,11 +95,14 @@ test('運転後のあとでも、取り消さずに もう1度 出発できる',
   await at('09:45'); await page.getByRole('button', { name: /本日の運転を終える/ }).click();
   await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
 
-  // 取り消しを求めず、そのまま出発できる
+  // 取り消しを求めず、そのまま出発できる。ただし終わったときに気づかせる
+  const notices: string[] = [];
+  page.on('dialog', d => { notices.push(d.message()); d.accept(); });
   await at('14:00'); await page.getByTestId('depart').click();
   await expect(page.getByTestId('enroute')).toContainText('運行中');
   await at('14:50'); await page.getByTestId('return').click();
   await page.getByTestId('finish').click();
+  await expect.poll(() => notices.join('\n')).toContain('もう1度記録してください');
 
   // 戻ったら「記録し直してください」に変わる。運転後は残ったまま
   await expect(page.getByTestId('today')).toContainText('記録し直してください');

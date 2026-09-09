@@ -26,27 +26,32 @@ export function buildReview(
   const alc = checks.filter(c => inMonth(c.date, ym));
 
   // 運転者・日ごとのアルコール記録の有無と、最初の運転前の時刻
-  type Seen = { pre: boolean; post: boolean; preAt: string };
+  type Seen = { pre: boolean; post: boolean; preAt: string; postAt: string };
   const seen = new Map<string, Seen>();
   const dup = new Map<string, string[]>();
   for (const c of alc) {
     const key = `${c.date}|${c.driver}`;
-    const s = seen.get(key) ?? { pre: false, post: false, preAt: '' };
+    const s = seen.get(key) ?? { pre: false, post: false, preAt: '', postAt: '' };
     if (c.kind === '運転前') {
       s.pre = true;
       if (!s.preAt || isAfter(s.preAt, c.at)) s.preAt = c.at;   // 最も早い運転前
-    } else s.post = true;
+    } else {
+      s.post = true;
+      if (isAfter(c.at, s.postAt)) s.postAt = c.at;             // 最も遅い運転後
+    }
     seen.set(key, s);
     const dk = `${c.date}|${c.kind}|${c.driver}|${c.at}`;
     dup.set(dk, [...(dup.get(dk) ?? []), c.id]);
   }
 
-  // 運転者・日ごとの最初の出発時刻
+  // 運転者・日ごとの、最初の出発と最後の帰着
   const firstDep = new Map<string, string>();
+  const lastBack = new Map<string, string>();
   for (const t of target) {
     const key = `${t.date}|${t.driver}`;
     const cur = firstDep.get(key);
     if (!cur || isAfter(cur, t.departAt)) firstDep.set(key, t.departAt);
+    if (t.returnAt && isAfter(t.returnAt, lastBack.get(key) ?? '')) lastBack.set(key, t.returnAt);
   }
 
   const reported = new Set<string>();
@@ -100,7 +105,7 @@ export function buildReview(
     const akey = `${t.date}|${t.driver}`;
     if (!reported.has(akey)) {
       reported.add(akey);
-      const s = seen.get(akey) ?? { pre: false, post: false, preAt: '' };
+      const s = seen.get(akey) ?? { pre: false, post: false, preAt: '', postAt: '' };
       if (!s.pre) add('要確認', t.id, t.date, who, 'この日の運転前アルコールチェックが未記録', '法定記録。実施していれば追記');
       if (!s.post) add('要確認', t.id, t.date, who, 'この日の運転後アルコールチェックが未記録', '法定記録。実施していれば追記');
       const dep = firstDep.get(akey);
@@ -108,6 +113,12 @@ export function buildReview(
         add('要確認', t.id, t.date, who,
             `運転前チェック（${s.preAt}）がこの日の最初の出発（${dep}）より後`,
             '運行後に記録された可能性。実際の実施時刻に直すか、経緯を特記に残す');
+      // 運転後を記録したあとにもう1度運転した場合。記録し直さないと実態と合わない
+      const back = lastBack.get(akey);
+      if (s.postAt && back && isAfter(back, s.postAt))
+        add('要確認', t.id, t.date, who,
+            `運転後チェック（${s.postAt}）がこの日の最後の帰着（${back}）より前`,
+            'その後もう1度運転している。最後の運転のあとに実施した時刻へ直す');
     }
   }
 
