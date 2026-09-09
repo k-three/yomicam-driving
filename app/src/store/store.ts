@@ -31,13 +31,16 @@ export interface Store {
   finishTrip(tripId: string, input: { dest: string; mokushi: boolean; handover: boolean; note: string }): Promise<void>;
   undoLast(tripId: string): Promise<void>;
   cancelTrip(tripId: string): Promise<void>;
-  recordAlcohol(input: Omit<AlcoholCheck, 'id' | 'date' | 'at'>): Promise<void>;
+  /** photoData には縮めた画像（data URL）を渡す。画像は別の文書に保存する */
+  recordAlcohol(input: Omit<AlcoholCheck, 'id' | 'date' | 'at'> & { photoData?: string }): Promise<void>;
   undoAlcohol(kind: AlcoholCheck['kind'], driver: string): Promise<void>;
 
   // --- 管理者の是正操作 ---
   /** 当日分に限らず、過去の記録も直せる（月次提出前の修正で使う） */
   editTrip(tripId: string, patch: TripPatch): Promise<void>;
-  addAlcohol(input: Omit<AlcoholCheck, 'id'>): Promise<void>;
+  addAlcohol(input: Omit<AlcoholCheck, 'id'> & { photoData?: string }): Promise<void>;
+  /** 記録に付いている写真を読む。無ければ null */
+  loadPhoto(checkId: string): Promise<string | null>;
   editAlcohol(id: string, patch: AlcoholPatch): Promise<void>;
   deleteAlcohol(id: string): Promise<void>;
   /** マスタ（運転者・車両・拠点・確認者・学校）の更新 */

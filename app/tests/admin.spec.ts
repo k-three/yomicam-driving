@@ -201,3 +201,14 @@ test('警告の出ている場所から、そのまま直せる', async ({ page 
   await row.getByRole('button', { name: /12:00/ }).click();
   await expect(page.getByRole('dialog').getByLabel('時刻')).toHaveValue('12:00');
 });
+
+test('添付された写真を管理画面で開ける', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+  await page.getByTestId('alcohol-row').first().getByRole('button', { name: '追記' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('時刻').fill('09:00');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+
+  // 追記した記録には写真が無いので、印は出ない
+  await expect(page.getByRole('button', { name: '📷' })).toHaveCount(0);
+});

@@ -77,6 +77,17 @@ service cloud.firestore {
       allow delete: if isAdmin() || (member() && isToday());
     }
 
+    // 検知器の表示を撮った写真。記録の一覧を開くたびに画像まで読み込まないよう、
+    // 本体とは別の文書に置く。扱いはアルコールの記録と同じ
+    match /alcoholPhotos/{id} {
+      allow read: if member();
+      allow create: if isAdmin()
+        || (member() && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.ymd == todayNum());
+      allow update: if isAdmin() || (member() && isToday() && sameDay());
+      allow delete: if isAdmin() || (member() && isToday());
+    }
+
     match /alcohol/{id} {
       allow read: if member();
       allow create: if isAdmin()

@@ -248,11 +248,20 @@ test('0.00 以外の値と、対面以外の確認方法も記録できる', asy
   await dialog.getByLabel('検知器の表示').fill('0.15');
   await dialog.getByLabel('確認方法').selectOption('写真送付');
   await dialog.getByLabel('備考').fill('自宅から出発のため写真で確認');
+
+  // 検知器の表示を撮った写真も付けられる（縮めてから保存する）
+  await dialog.getByLabel('写真（任意）').setInputFiles({
+    name: 'meter.png', mimeType: 'image/png',
+    // 検証用の小さな画像
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGM4oaGBFTEMLQkAgl1GAWqNFmsAAAAASUVORK5CYII=', 'base64'),
+  });
+  await expect(dialog.locator('.photo-state')).toContainText('写真を添付しました');
   await dialog.getByRole('button', { name: '保存する' }).click();
 
   // 値と確認方法が記録に残る
   await expect(page.getByTestId('alc-運転前')).toContainText('⚠ 0.15');
   await expect(page.getByTestId('alc-運転前')).toContainText('写真送付');
+  await expect(page.getByTestId('alc-運転前')).toContainText('📷');
 
   // 検出されているあいだは出発できない
   await expect(page.getByTestId('today')).toContainText('アルコールが検出されています');

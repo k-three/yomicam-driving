@@ -10,7 +10,7 @@
  *  - 日付が変わったら購読し直す。日をまたいで開きっぱなしでも当日分に切り替わる。
  */
 import {
-  addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, setDoc, updateDoc, where,
+  addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where,
   type QuerySnapshot,
 } from 'firebase/firestore';
 import type { AlcoholCheck, Config, Stop, Trip } from '../domain/types';
@@ -70,6 +70,7 @@ function toCheck(id: string, d: Doc): AlcoholCheck {
     note: String(d.note ?? ''),
     checker: String(d.checker ?? ''),
     method: String(d.method ?? ''),
+    photo: d.photo === true,
   };
 }
 
@@ -258,9 +259,23 @@ export class FirestoreStore implements Store {
     this.send(updateDoc(doc(this.db, 'trips', tripId), { ...patch }));
   }
 
-  async addAlcohol(input: Omit<AlcoholCheck, 'id'>) {
-    this.send(addDoc(collection(this.db, 'alcohol'),
-      { ...input, ymd: ymdOf(input.date), createdBy: this.uid }));
+  async addAlcohol({ photoData, ...input }: Omit<AlcoholCheck, 'id'> & { photoData?: string }) {
+    this.withPhoto(addDoc(collection(this.db, 'alcohol'),
+      { ...input, ymd: ymdOf(input.date), photo: !!photoData, createdBy: this.uid }), photoData, input.date);
+  }
+
+  /** 写真は別の文書に置く。一覧を開くたびに画像まで読み込まないため */
+  private withPhoto(p: Promise<{ id: string }>, photo: string | undefined, date: string) {
+    this.send(photo
+      ? p.then(ref => setDoc(doc(this.db, 'alcoholPhotos', ref.id),
+          { data: photo, ymd: ymdOf(date), createdBy: this.uid }))
+      : p);
+  }
+
+  async loadPhoto(checkId: string) {
+    const snap = await getDoc(doc(this.db, 'alcoholPhotos', checkId));
+    const data = snap.exists() ? (snap.data() as Doc).data : null;
+    return typeof data === 'string' ? data : null;
   }
 
   async editAlcohol(id: string, patch: AlcoholPatch) {
@@ -287,12 +302,13 @@ export class FirestoreStore implements Store {
     };
   }
 
-  async recordAlcohol(input: Omit<AlcoholCheck, 'id' | 'date' | 'at'>) {
+  async recordAlcohol({ photoData, ...input }: Omit<AlcoholCheck, 'id' | 'date' | 'at'> & { photoData?: string }) {
     if (input.kind === '運転後' &&
         !this.checks.some(c => c.kind === '運転前' && c.driver === input.driver))
       throw new InputError('先に運転前のアルコールチェックを記録してください。');
-    this.send(addDoc(collection(this.db, 'alcohol'),
-      { ...input, date: this.day, ymd: ymdOf(this.day), at: hhmm(), createdBy: this.uid }));
+    this.withPhoto(addDoc(collection(this.db, 'alcohol'),
+      { ...input, date: this.day, ymd: ymdOf(this.day), at: hhmm(),
+        photo: !!photoData, createdBy: this.uid }), photoData, this.day);
   }
 
   async undoAlcohol(kind: AlcoholCheck['kind'], driver: string) {

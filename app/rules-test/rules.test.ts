@@ -123,6 +123,22 @@ describe('運転手', () => {
   });
 });
 
+describe('検知器の写真', () => {
+  it('運転手は当日の写真を作れる・読める', async () => {
+    const db = asPassword(DRIVER);
+    await assertSucceeds(setDoc(doc(db, 'alcoholPhotos', 'p1'),
+      { data: 'data:image/jpeg;base64,xxx', ymd: TODAY, createdBy: DRIVER }));
+    await assertSucceeds(getDoc(doc(db, 'alcoholPhotos', 'p1')));
+  });
+  it('過去日の写真は作れない', async () => {
+    await assertFails(setDoc(doc(asPassword(DRIVER), 'alcoholPhotos', 'p2'),
+      { data: 'x', ymd: YESTERDAY, createdBy: DRIVER }));
+  });
+  it('ログインしていない人には見えない', async () => {
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'alcoholPhotos', 'p1')));
+  });
+});
+
 describe('管理者', () => {
   it('前日以前の記録も直せる', async () => {
     await assertSucceeds(updateDoc(doc(asPassword(ADMIN), 'trips', 'yesterday'), { returnAt: '11:30' }));

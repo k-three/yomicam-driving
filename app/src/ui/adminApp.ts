@@ -14,6 +14,7 @@ import { renderTimeline, attachTooltip } from './timeline';
 import { openAlcoholEditor, openConfigEditor, openTripEditor } from './edit';
 import { printSheets } from './print';
 import { removeTripAndAsk } from './remove';
+import { showPhoto } from './photo';
 import { toast } from './toast';
 import { buildXlsx, download } from '../export/xlsx';
 import { hhmm, today } from '../store/clock';
@@ -188,6 +189,14 @@ export class AdminApp {
         save: rec => this.run(() => this.store.editAlcohol(c.id, rec), '記録を修正しました'),
         remove: () => this.run(() => this.store.deleteAlcohol(c.id), '記録を削除しました'),
       });
+    });
+
+    on('[data-photo]', el => {
+      const id = el.dataset.photo!;
+      const c = this.checkById(id);
+      this.store.loadPhoto(id).then(url => (url
+        ? showPhoto(url, `${c?.driver ?? ''}　${c?.kind ?? ''}　${c?.at ?? ''}　${c?.result ?? ''}`)
+        : toast('写真が見つかりませんでした')));
     });
 
     on('[data-add-alc]', el => {

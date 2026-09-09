@@ -45,6 +45,9 @@ export type AlcoholCheck = {
   note: string;
   checker: string;
   method: string;     // 対面 / 写真送付 / 電話 / ビデオ
+  /** 検知器の表示を撮った写真があるか。画像は alcoholPhotos/{id} に別置き
+   *  （一覧を開くたびに画像まで読み込まないようにするため） */
+  photo?: boolean;
 };
 
 export type Vehicle = { name: string; regno: string; active: boolean };

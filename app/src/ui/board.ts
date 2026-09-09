@@ -9,11 +9,17 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
 /** アルコールチェックの1マス。記録があれば押して直せるようにし、無ければ追記させる。
  *  警告を出している場所と、直す場所を離さないための作り。 */
 const cell = (rec: AlcoholCheck | undefined, driver: string, kind: string, editable: boolean) => {
-  if (!editable) return rec ? `${esc(rec.at)}　${esc(rec.result)}` : '—';
-  return rec
-    ? `<button class="mini rec" data-fix-alc="${esc(rec.id)}">${esc(rec.at)}　${esc(rec.result)}</button>`
-    : `<span class="none">—</span>
-       <button class="mini" data-add-alc="${esc(driver)}|${esc(kind)}">追記</button>`;
+  if (!rec) return editable
+    ? `<span class="none">—</span>
+       <button class="mini" data-add-alc="${esc(driver)}|${esc(kind)}">追記</button>`
+    : '—';
+  // 写真は押したときだけ読み込む（一覧を開くたびに画像まで取りに行かない）
+  const pic = rec.photo
+    ? `<button class="mini" data-photo="${esc(rec.id)}" title="写真を見る">📷</button>` : '';
+  const body = `${esc(rec.at)}　${esc(rec.result)}`;
+  return (editable
+    ? `<button class="mini rec" data-fix-alc="${esc(rec.id)}">${body}</button>`
+    : body) + pic;
 };
 
 const table = (head: string[], rows: string[], empty: string) =>

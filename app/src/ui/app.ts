@@ -162,7 +162,8 @@ export class App {
       return `<div class="row"><span class="label">${kind}</span>
         <span class="status${ng ? ' ng' : ''}" data-testid="alc-${kind}">${
           ng ? `⚠ ${esc(rec.result)}` : '✓ 0.00'}　${esc(rec.at)}${
-          rec.method && rec.method !== '対面' ? `　${esc(rec.method)}` : ''}</span>
+          rec.method && rec.method !== '対面' ? `　${esc(rec.method)}` : ''}${
+          rec.photo ? '　📷' : ''}</span>
         <button class="mini" data-undo="${kind}">取消</button></div>`;
     }
     if (locked)
@@ -336,7 +337,7 @@ export class App {
         save: v => this.run(() => this.store.recordAlcohol({
           kind, driver: this.driver, vehicle: this.vehicle,
           result: v.result, inspection: v.inspection, note: v.note,
-          checker: this.config.inspectors[0] ?? '', method: v.method,
+          checker: this.config.inspectors[0] ?? '', method: v.method, photoData: v.photoData,
         }), `${kind}チェックを記録`),
       });
     });

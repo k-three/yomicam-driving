@@ -3,6 +3,7 @@
  *  Apps Script 版では運行中の状態が別シートの状態JSONだったため手で直せず、
  *  「おかしいと分かっても直せない」状態が起きていた。ここではそれが起きない。 */
 import type { AlcoholCheck, Config, Stop, Trip } from '../domain/types';
+import { shrink } from './photo';
 import type { TripPatch } from '../store/store';
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
@@ -234,7 +235,8 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
  *  数値が出たときや、対面で確認できず写真を送ってもらったときはこちらを使う。 */
 export function openAlcoholQuick(
   kind: AlcoholCheck['kind'], config: Config,
-  handlers: { save: (v: { result: string; method: string; inspection: string; note: string }) => void },
+  handlers: { save: (v: { result: string; method: string; inspection: string;
+                          note: string; photoData?: string }) => void },
 ) {
   const d = dialog(`${kind}のアルコールチェック`, `
     ${row('検知器の表示', `<input name="result" value="" placeholder="例：0.15" autocomplete="off">`,
@@ -245,14 +247,33 @@ export function openAlcoholQuick(
       ? row('日常点検', `<select name="inspection">${opts(['良', '否'], '良')}</select>`)
       : '<input name="inspection" type="hidden" value="">'}
     ${row('備考', `<input name="note" value="" placeholder="気づいたことがあれば">`)}
+    ${row('写真（任意）', `<input name="photo" type="file" accept="image/*" capture="environment">`,
+      'メーターを撮った写真を添付できます。対面で確認できないときの証跡になります')}
+    <p class="photo-state" data-photo hidden></p>
     <p class="sub note">実施していない記録を作らないでください。1年間の保存義務があります。</p>`);
+
+  // 写真はその場で縮める。撮ったままだと数MBあり、保存できない
+  let photoData: string | undefined;
+  const state = d.querySelector<HTMLElement>('[data-photo]')!;
+  d.querySelector<HTMLInputElement>('[name=photo]')!.addEventListener('change', async e => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) { photoData = undefined; state.hidden = true; return; }
+    state.hidden = false; state.textContent = '写真を読み込んでいます…';
+    try {
+      photoData = await shrink(file);
+      state.textContent = `✓ 写真を添付しました（${Math.round(photoData.length / 1024)}KB）`;
+    } catch (err) {
+      photoData = undefined;
+      state.textContent = err instanceof Error ? err.message : '写真を読み込めませんでした';
+    }
+  });
 
   wire(d, () => {
     const result = val(d, 'result');
     if (!result) return '検知器の表示を入れてください。';
     handlers.save({
       result, method: val(d, 'method'),
-      inspection: val(d, 'inspection'), note: val(d, 'note') || '良好',
+      inspection: val(d, 'inspection'), note: val(d, 'note') || '良好', photoData,
     });
     return null;
   });

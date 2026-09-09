@@ -148,8 +148,10 @@ export class MemoryStore implements Store {
     this.emit();
   }
 
-  async addAlcohol(input: Omit<AlcoholCheck, 'id'>) {
-    this.checks.push({ ...input, id: `a${++this.seq}` });
+  async addAlcohol({ photoData, ...input }: Omit<AlcoholCheck, 'id'> & { photoData?: string }) {
+    const id = `a${++this.seq}`;
+    if (photoData) this.photos.set(id, photoData);
+    this.checks.push({ ...input, id, photo: !!photoData });
     this.emit();
   }
 
@@ -179,14 +181,20 @@ export class MemoryStore implements Store {
     };
   }
 
-  async recordAlcohol(input: Omit<AlcoholCheck, 'id' | 'date' | 'at'>) {
+  private photos = new Map<string, string>();
+
+  async recordAlcohol({ photoData, ...input }: Omit<AlcoholCheck, 'id' | 'date' | 'at'> & { photoData?: string }) {
     const d = today();
     if (input.kind === '運転後' &&
         !this.checks.some(c => c.date === d && c.kind === '運転前' && c.driver === input.driver))
       throw new InputError('先に運転前のアルコールチェックを記録してください。');
-    this.checks.push({ ...input, id: `a${++this.seq}`, date: d, at: hhmm() });
+    const id = `a${++this.seq}`;
+    if (photoData) this.photos.set(id, photoData);
+    this.checks.push({ ...input, id, date: d, at: hhmm(), photo: !!photoData });
     this.emit();
   }
+
+  async loadPhoto(checkId: string) { return this.photos.get(checkId) ?? null; }
 
   async undoAlcohol(kind: AlcoholCheck['kind'], driver: string) {
     const d = today();
