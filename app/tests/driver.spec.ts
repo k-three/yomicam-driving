@@ -312,3 +312,42 @@ test('同僚のアルコールチェックは運転手の画面に出ない', as
   await expect(page.getByTestId('alcohol-row')).toContainText('運転者J');
   await expect(page.getByText('運転者H')).toHaveCount(0);
 });
+
+test('児童を登録すると、人数ではなく名前で選べる', async ({ page }) => {
+  await page.goto('./?mock=1');
+  await page.getByTestId('pw').fill('mock');
+  await page.getByTestId('login').click();
+
+  // 児童は「設定」から登録する（コードには氏名を置かない）ので、
+  // ここでは管理画面と同じサンプルの登録済み状態を使う
+  await page.evaluate(() => (window as unknown as { seedKids?: () => void }).seedKids?.());
+
+  await page.getByTestId('pick-driver').click();
+  await page.getByRole('button', { name: '運転者H' }).click();
+  await page.getByTestId('pick-vehicle').click();
+  await page.getByRole('button', { name: 'パッソ' }).click();
+  await page.getByTestId('alc-record-運転前').click();
+  await page.getByTestId('depart').click();
+  await page.getByRole('button', { name: /渡慶次小学校/ }).click();
+
+  // その学校の児童だけが候補に出る（呼び名で表示）
+  await expect(page.getByRole('button', { name: /そら/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /りおん/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /まいら/ })).toHaveCount(0);
+
+  // 選ぶまで出発できない
+  await expect(page.getByTestId('board')).toBeDisabled();
+  await page.getByRole('button', { name: /そら/ }).click();
+  await expect(page.getByTestId('board')).toHaveText(/1人 乗せて出発/);
+  await page.getByRole('button', { name: /りおん/ }).click();
+  await expect(page.getByTestId('board')).toHaveText(/2人 乗せて出発/);
+  await page.screenshot({ path: 'tests/shot-kids.png', fullPage: true });
+
+  await page.getByTestId('board').click();
+  await expect(page.getByTestId('enroute')).toContainText('乗車 2人');
+
+  // 本日の運行には呼び名で出る
+  await page.getByTestId('return').click();
+  await page.getByTestId('finish').click();
+  await expect(page.getByText('渡慶次小学校 そら・りおん')).toBeVisible();
+});

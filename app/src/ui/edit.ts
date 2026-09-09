@@ -2,7 +2,7 @@
  *  運行中の記録も確定済みの記録も同じ形（Trip）なので、同じ画面で直せる。
  *  Apps Script 版では運行中の状態が別シートの状態JSONだったため手で直せず、
  *  「おかしいと分かっても直せない」状態が起きていた。ここではそれが起きない。 */
-import type { AlcoholCheck, Config, Stop, Trip } from '../domain/types';
+import type { AlcoholCheck, Child, Config, Stop, Trip } from '../domain/types';
 import { shrink } from './photo';
 import type { TripPatch } from '../store/store';
 
@@ -208,6 +208,13 @@ export function openAlcoholEditor(
 
 export function openConfigEditor(config: Config, handlers: { save: (c: Config) => void }) {
   const lines = (v: string[]) => esc(v.join('\n'));
+  const kidRow = (c: Child, i: number) => `<tr data-kid="${i}">
+    <td><input name="k-name-${i}" value="${esc(c.name)}" placeholder="山田太郎"></td>
+    <td><input name="k-alias-${i}" value="${esc(c.alias)}" placeholder="たろう"></td>
+    <td><input name="k-school-${i}" value="${esc(c.school)}" placeholder="◯◯小学校"></td>
+    <td><input name="k-grade-${i}" value="${esc(c.grade)}" placeholder="1年"></td>
+    <td><input name="k-active-${i}" type="checkbox"${c.active ? ' checked' : ''}></td>
+    <td><button type="button" class="mini danger" data-del-kid="${i}">削除</button></td></tr>`;
   const d = dialog('設定（マスタ）', `
     <p class="sub note">1行に1つ。ここを直すと運転手アプリの選択肢も変わります。</p>
     <div class="grid2">
@@ -216,6 +223,15 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
       ${row('拠点・到着場所', `<textarea name="bases" rows="4">${lines(config.bases)}</textarea>`)}
       ${row('確認者', `<textarea name="inspectors" rows="4">${lines(config.inspectors)}</textarea>`)}
     </div>
+    <p class="sub">送迎する児童</p>
+    <p class="note">氏名はこのリポジトリには入れず、ここから登録して保存します。<br>
+      <b>氏名</b>は報告書に載る正式な名前、<b>表示名</b>はふだん画面に出す呼び名です。
+      <b>学校</b>は、その学校ボタンを押したときに候補として出すために使います。</p>
+    <table class="stops"><thead><tr>
+      <th>氏名（報告書用）</th><th>表示名</th><th>学校</th><th>学年</th><th>送迎</th><th></th></tr></thead>
+      <tbody data-kids>${config.children.map(kidRow).join('')}</tbody></table>
+    <button type="button" class="mini" data-add-kid>＋ 児童を追加</button>
+
     <p class="sub">車両と自動車登録番号</p>
     <p class="note">登録番号が空だと、保険会社向けの輸送記録に車両の呼び名がそのまま出ます。</p>
     <table class="stops"><thead><tr><th>車両</th><th>自動車登録番号</th><th>使用</th></tr></thead>
@@ -225,15 +241,38 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
         <td><input name="v-active-${i}" type="checkbox"${v.active ? ' checked' : ''}></td>
       </tr>`).join('')}</tbody></table>`);
 
+  const kids = d.querySelector<HTMLElement>('[data-kids]')!;
+  let k = config.children.length;
+  const bindKidDel = () => kids.querySelectorAll<HTMLElement>('[data-del-kid]').forEach(b =>
+    b.onclick = () => b.closest('tr')!.remove());
+  bindKidDel();
+  d.querySelector('[data-add-kid]')!.addEventListener('click', () => {
+    kids.insertAdjacentHTML('beforeend',
+      kidRow({ name: '', alias: '', school: config.schools[0] ?? '', grade: '', active: true }, k++));
+    bindKidDel();
+  });
+
   const list = (name: string) => val(d, name).split('\n').map(s => s.trim()).filter(Boolean);
   wire(d, () => {
+    const children: Child[] = [];
+    for (const tr of kids.querySelectorAll<HTMLElement>('[data-kid]')) {
+      const i = tr.dataset.kid!;
+      const name = val(tr, `k-name-${i}`);
+      if (!name) continue;                       // 空の行は無視する
+      children.push({
+        name, alias: val(tr, `k-alias-${i}`) || name,
+        school: val(tr, `k-school-${i}`), grade: val(tr, `k-grade-${i}`),
+        active: checked(tr, `k-active-${i}`),
+      });
+    }
     const drivers = list('drivers'), schools = list('schools');
     if (!drivers.length) return '運転者を1人以上入れてください。';
     if (!schools.length) return '学校を1つ以上入れてください。';
     const vehicles = config.vehicles.map((_, i) => ({
       name: val(d, `v-name-${i}`), regno: val(d, `v-regno-${i}`), active: checked(d, `v-active-${i}`),
     })).filter(v => v.name);
-    handlers.save({ drivers, schools, bases: list('bases'), inspectors: list('inspectors'), vehicles });
+    handlers.save({ drivers, schools, bases: list('bases'), inspectors: list('inspectors'),
+                    vehicles, children });
     return null;
   });
 }

@@ -128,8 +128,21 @@ export function buildTripReport(trips: Trip[], ym: string): Trip[] {
     .sort((a, b) => (a.date + a.departAt < b.date + b.departAt ? -1 : 1));
 }
 
+/** 報告書に載せる正式な氏名。氏名を登録する前の記録は空になる */
+export function riderNames(t: Trip): string {
+  return t.stops.flatMap(s => s.riders ?? []).map(r => r.name).join('、');
+}
+
+/** 画面に出す呼び名。ふだんはこちらを使う */
+export function riderAliases(t: Trip): string {
+  return t.stops.flatMap(s => s.riders ?? []).map(r => r.alias).join('・');
+}
+
 export function summarize(t: Trip): string {
   return t.stops
-    .map(s => `${s.school} ${s.arriveAt}→${s.departAt}${s.count ? `（${s.count}人）` : '（乗車なし）'}`)
+    .map(s => {
+      const who = s.riders?.length ? s.riders.map(r => r.alias).join('・') : `${s.count}人`;
+      return `${s.school} ${s.arriveAt}→${s.departAt}${s.count ? `（${who}）` : '（乗車なし）'}`;
+    })
     .join(' ／ ');
 }

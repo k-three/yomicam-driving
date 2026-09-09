@@ -1,7 +1,7 @@
 /** メモリ上のデータ層。開発と自動テストで使う。
  *  Firestore 実装と同じ規則（記録できない操作は InputError）を守るので、
  *  ここで通ったフローは本番でも同じ順序で通る。 */
-import type { AlcoholCheck, Config, Stop, Trip } from '../domain/types';
+import type { AlcoholCheck, Config, Rider, Stop, Trip } from '../domain/types';
 import { InputError, type AlcoholPatch, type Snapshot, type Store, type TripPatch } from './store';
 import { hhmm, today } from './clock';
 
@@ -15,6 +15,8 @@ export const SEED_CONFIG: Config = {
             '運転者G', '運転者H', '運転者I', '運転者J', '運転者K'],
   vehicles: ['ハイエース', 'パッソ', 'フィット', 'ハスラー',
              'フリード1', 'フリード2', 'タント'].map(name => ({ name, regno: '', active: true })),
+  // 児童の氏名はこのリポジトリに置かない。管理画面の「設定」から登録する
+  children: [],
   bases: ['読谷村文化センター', '自宅', 'その他'],
   inspectors: ['安全運転管理者'],
   schools: ['読谷小学校', '渡慶次小学校', '喜名小学校', '古堅小学校', '古堅南小学校', 'よみたん自然学校'],
@@ -31,8 +33,21 @@ export class MemoryStore implements Store {
   /** 設定画面から保存されたら、仮の名前ではなくなる */
   private configured = false;
 
-  /** 開発・確認用のサンプル。画面の見え方を確かめるためのもので、本番では使わない */
+  /** 児童だけを登録した状態にする（画面確認と自動テスト用。氏名は仮名） */
+  seedChildren() {
+    this.config = { ...this.config, children: [
+      { name: '山田そら', alias: 'そら', school: '渡慶次小学校', grade: '1年', active: true },
+      { name: '田中りおん', alias: 'りおん', school: '渡慶次小学校', grade: '3年', active: true },
+      { name: '佐藤まいら', alias: 'まいら', school: '古堅小学校', grade: '2年', active: true },
+      { name: '鈴木こあ', alias: 'こあ', school: '喜名小学校', grade: '5年', active: true },
+    ] };
+    this.emit();
+  }
+
+  /** 開発・確認用のサンプル。画面の見え方を確かめるためのもので、本番では使わない。
+   *  児童も仮名。実名は管理画面の「設定」から登録する */
   seedSample() {
+    this.seedChildren();
     const d = today();
     const t = (o: Partial<Trip> & Pick<Trip, 'id' | 'vehicle' | 'driver' | 'departAt'>): Trip => ({
       date: d, base: '読谷村文化センター', dest: '読谷村文化センター', returnAt: '',
@@ -41,7 +56,9 @@ export class MemoryStore implements Store {
     this.trips = [
       t({ id: 's1', vehicle: 'ハイエース', driver: '運転者J', departAt: '13:05',
           returnAt: '13:52', status: 'done', mokushi: true, handover: true,
-          stops: [{ school: '渡慶次小学校', arriveAt: '13:18', departAt: '13:29', count: 3 }] }),
+          stops: [{ school: '渡慶次小学校', arriveAt: '13:18', departAt: '13:29', count: 2,
+                    riders: [{ name: '山田そら', alias: 'そら' },
+                             { name: '田中りおん', alias: 'りおん' }] }] }),
       t({ id: 's2', vehicle: 'フリード1', driver: '運転者K', departAt: '13:40',
           stops: [{ school: '古堅小学校', arriveAt: '13:55', departAt: '14:04', count: 2 },
                   { school: '喜名小学校', arriveAt: '14:16', departAt: '', count: 0 }] }),
@@ -111,12 +128,13 @@ export class MemoryStore implements Store {
     this.emit();
   }
 
-  async departSchool(tripId: string, count: number) {
+  async departSchool(tripId: string, riders: Rider[], count?: number) {
     const t = this.trip(tripId);
     const stop = this.openStop(t);
     if (!stop) throw new InputError('到着した学校がありません。');
     stop.departAt = hhmm();
-    stop.count = Math.max(0, Math.min(20, Math.round(count)));
+    stop.count = riders.length || Math.max(0, Math.min(20, Math.round(count ?? 0)));
+    if (riders.length) stop.riders = riders;
     this.emit();
   }
 

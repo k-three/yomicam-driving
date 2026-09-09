@@ -8,11 +8,21 @@ export type Time = string;
 /** 'YYYY-MM-DD' */
 export type Day = string;
 
+/** 乗せた児童。記録そのものに氏名を持たせる（マスタを引かずに読めるようにする）。
+ *  月次で提出したあとにマスタを直しても、過去の記録が変わらないため。 */
+export type Rider = {
+  /** 報告書に載せる正式な氏名 */
+  name: string;
+  /** ふだん画面に出す呼び名 */
+  alias: string;
+};
+
 export type Stop = {
   school: string;
   arriveAt: Time;
   departAt: Time;   // 乗車出発。まだなら ''
-  count: number;
+  count: number;    // riders の人数。氏名を登録する前の記録は人数だけを持つ
+  riders?: Rider[];
 };
 
 export type Trip = {
@@ -52,9 +62,23 @@ export type AlcoholCheck = {
 
 export type Vehicle = { name: string; regno: string; active: boolean };
 
+/** 送迎する児童。氏名はこのリポジトリに置かず、管理画面の「設定」から
+ *  登録して Firestore（config/master）に保存する。 */
+export type Child = {
+  /** 報告書に載せる正式な氏名 */
+  name: string;
+  /** ふだん画面に出す呼び名 */
+  alias: string;
+  /** どの学校で乗るか。学校ボタンから絞り込むのに使う */
+  school: string;
+  grade: string;
+  active: boolean;
+};
+
 export type Config = {
   drivers: string[];
   vehicles: Vehicle[];
+  children: Child[];
   bases: string[];
   inspectors: string[];
   schools: string[];

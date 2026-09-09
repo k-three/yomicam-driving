@@ -1,7 +1,8 @@
 /** 帳票の「表」の定義。Excel も印刷用HTMLも、ここで作った同じ表から描く。
  *  2つの経路で列がずれないようにするため、表の形は1か所にまとめている。 */
 import type { AlcoholCheck, Config, Trip } from './types';
-import { BRACKETS, buildAlcoholReport, buildInsuranceReport, buildTripReport, summarize, totalCount } from './reports';
+import { BRACKETS, buildAlcoholReport, buildInsuranceReport, buildTripReport,
+         riderNames, summarize, totalCount } from './reports';
 import { buildReview } from './review';
 import { elapsed, hm } from './time';
 import type { SheetSpec } from '../export/xlsx';
@@ -63,10 +64,10 @@ export function reportSheets(kind: ReportKind, src: Source): SheetSpec[] {
     return [{
       name: '運行日報', title: `${m}　運行日報`,
       head: ['日付', '車両', '運転者', '出発地', '出発', '到着地', '到着', '所要時間',
-             '乗車人数', '経由', '車内目視', '引き渡し', '特記'],
+             '乗車人数', '児童', '経由', '車内目視', '引き渡し', '特記'],
       rows: list.map(t => [t.date, t.vehicle, t.driver, t.base, t.departAt, t.dest, t.returnAt,
-                           hm(elapsed(t.departAt, t.returnAt)), totalCount(t), summarize(t),
-                           t.mokushi ? '済' : '', t.handover ? '済' : '', t.note]),
+                           hm(elapsed(t.departAt, t.returnAt)), totalCount(t), riderNames(t),
+                           summarize(t), t.mokushi ? '済' : '', t.handover ? '済' : '', t.note]),
     }];
   }
 

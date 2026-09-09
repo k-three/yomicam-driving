@@ -1,6 +1,6 @@
 /** データ層の入口。開発・テストではメモリ実装、本番では Firestore 実装を使う。
  *  画面はこの型だけに依存させ、Firebase の有無に関わらず動かせるようにする。 */
-import type { Trip, AlcoholCheck, Config, Stop, Day } from '../domain/types';
+import type { Trip, AlcoholCheck, Config, Stop, Day, Rider } from '../domain/types';
 
 export type Snapshot = {
   config: Config;
@@ -27,7 +27,8 @@ export interface Store {
   // --- 運転手の操作 ---
   startTrip(input: { vehicle: string; driver: string; base: string }): Promise<void>;
   arriveSchool(tripId: string, school: string): Promise<void>;
-  departSchool(tripId: string, count: number): Promise<void>;
+  /** 乗せた児童。氏名を登録していない間は空配列で、人数だけを渡す */
+  departSchool(tripId: string, riders: Rider[], count?: number): Promise<void>;
   finishTrip(tripId: string, input: { dest: string; mokushi: boolean; handover: boolean; note: string }): Promise<void>;
   undoLast(tripId: string): Promise<void>;
   cancelTrip(tripId: string): Promise<void>;

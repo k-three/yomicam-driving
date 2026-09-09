@@ -13,7 +13,7 @@ import {
   addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where,
   type QuerySnapshot,
 } from 'firebase/firestore';
-import type { AlcoholCheck, Config, Stop, Trip } from '../domain/types';
+import type { AlcoholCheck, Config, Rider, Stop, Trip } from '../domain/types';
 import {
   InputError, monthRange, type AlcoholPatch, type Snapshot, type Store, type TripPatch,
 } from './store';
@@ -42,12 +42,19 @@ function toTrip(id: string, d: Doc): Trip {
     departAt: String(d.departAt ?? ''),
     dest: String(d.dest ?? ''),
     returnAt: String(d.returnAt ?? ''),
-    stops: stops.map(s => ({
-      school: String(s.school ?? ''),
-      arriveAt: String(s.arriveAt ?? ''),
-      departAt: String(s.departAt ?? ''),
-      count: Number(s.count ?? 0),
-    })),
+    stops: stops.map(s => {
+      const riders = Array.isArray(s.riders)
+        ? (s.riders as Doc[]).map(r => ({
+            name: String(r.name ?? ''), alias: String(r.alias ?? r.name ?? '') }))
+        : undefined;
+      return {
+        school: String(s.school ?? ''),
+        arriveAt: String(s.arriveAt ?? ''),
+        departAt: String(s.departAt ?? ''),
+        count: Number(s.count ?? 0),
+        ...(riders?.length ? { riders } : {}),
+      };
+    }),
     mokushi: d.mokushi === true,
     // 以前は codomon（コドモン打刻）という名前だった。運用が変わり
     // 「拠点の担当者への引き渡し」を記録する項目になったので、旧名も読む
@@ -83,9 +90,14 @@ function toConfig(d: Doc | null): Config {
     ? (d.vehicles as Doc[]).map(v => ({
         name: String(v.name ?? ''), regno: String(v.regno ?? ''), active: v.active !== false }))
     : SEED_CONFIG.vehicles;
+  const children = Array.isArray(d.children)
+    ? (d.children as Doc[]).map(c => ({
+        name: String(c.name ?? ''), alias: String(c.alias ?? c.name ?? ''),
+        school: String(c.school ?? ''), grade: String(c.grade ?? ''), active: c.active !== false }))
+    : [];
   return {
     drivers: list(d.drivers, SEED_CONFIG.drivers),
-    vehicles,
+    vehicles, children,
     bases: list(d.bases, SEED_CONFIG.bases),
     inspectors: list(d.inspectors, SEED_CONFIG.inspectors),
     schools: list(d.schools, SEED_CONFIG.schools),
@@ -220,11 +232,14 @@ export class FirestoreStore implements Store {
     this.send(updateDoc(doc(this.db, 'trips', tripId), { stops }));
   }
 
-  async departSchool(tripId: string, count: number) {
+  async departSchool(tripId: string, riders: Rider[], count?: number) {
     const t = this.trip(tripId);
     if (!this.openStop(t)) throw new InputError('到着した学校がありません。');
     const stops = t.stops.map((s, i) => i === t.stops.length - 1
-      ? { ...s, departAt: hhmm(), count: Math.max(0, Math.min(20, Math.round(count))) } : s);
+      ? { ...s, departAt: hhmm(),
+          count: riders.length || Math.max(0, Math.min(20, Math.round(count ?? 0))),
+          riders }
+      : s);
     this.send(updateDoc(doc(this.db, 'trips', tripId), { stops }));
   }
 

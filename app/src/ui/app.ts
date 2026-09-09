@@ -3,9 +3,9 @@
  *  - 運転前が無いあいだは運転後を記録できない
  *  - 乗車人数を選ぶまで学校を出発できない
  *  - どの画面からでも運行をリセットできる */
-import type { AlcoholCheck, Config, Trip } from '../domain/types';
+import type { AlcoholCheck, Child, Config, Trip } from '../domain/types';
 import { InputError, type Snapshot, type Store } from '../store/store';
-import { normResult } from '../domain/time';
+import { normResult, normSchool } from '../domain/time';
 import { totalCount } from '../domain/reports';
 import { toast } from './toast';
 import { openAlcoholQuick, openTripEditor } from './edit';
@@ -34,6 +34,9 @@ export class App {
   private vehicle = localStorage.getItem(VEHICLE_KEY) ?? '';
   private picking: Picking = null;
   private selCount: number | null = null;
+  /** 学校で選んだ児童（正式な氏名）。画面を離れるとき捨てる */
+  private picked = new Set<string>();
+  private noRider = false;
   private returning = false;
   private view: View = 'record';
   private busy = false;
@@ -267,8 +270,11 @@ export class App {
     // 本日の運行。自分が運転したものは、その場で直せる（前日以前は管理者が直す）
     const all = this.snap!.trips.filter(t => t.status === 'done');
     if (all.length) h += `<div class="card"><h2>本日の運行（全車両）</h2>${all.map(t => {
-      const via = t.stops.map(x =>
-        `${x.school}${x.count ? ` ${x.count}人` : ' 乗車なし'}`).join(' → ') || '立ち寄りなし';
+      const via = t.stops.map(x => {
+        if (!x.count) return `${x.school} 乗車なし`;
+        // 児童を登録していれば呼び名、していなければ人数
+        return `${x.school} ${x.riders?.length ? x.riders.map(r => r.alias).join('・') : `${x.count}人`}`;
+      }).join(' → ') || '立ち寄りなし';
       return `<div class="log">
         <span class="body">
           <span class="time">${esc(t.departAt)}〜${esc(t.returnAt)}　${esc(t.vehicle)}・${esc(t.driver)}</span>
@@ -297,17 +303,42 @@ export class App {
     return h;
   }
 
+  /** その学校で乗る児童。学校名の表記ゆれ（渡慶次小／渡慶次小学校）を吸収する */
+  private childrenAt(school: string): Child[] {
+    const key = normSchool(school);
+    const all = this.config.children.filter(c => c.active);
+    const here = all.filter(c => normSchool(c.school) === key);
+    // その学校の登録が無ければ、全員を出す（登録漏れで記録できなくならないように）
+    return here.length ? here : all;
+  }
+
   private viewAtSchool(t: Trip) {
     const stop = this.openStop(t)!;
-    const picked = this.selCount !== null;
-    let h = `<div class="banner go" data-testid="at-school">📍 ${esc(stop.school)}<span class="t">到着 ${esc(stop.arriveAt)}</span></div>
-      <div class="card"><h2>乗せた人数をタップ</h2><div class="counts">`;
-    for (let i = 1; i <= 8; i++) h += `<button data-count="${i}"${this.selCount === i ? ' class="on"' : ''}>${i}</button>`;
-    h += `<button class="zero${this.selCount === 0 ? ' on' : ''}" data-count="0">乗車なし（0人）</button></div>
-      <button class="big" data-testid="board"${picked ? '' : ' disabled'}>${
-        picked ? (this.selCount! > 0 ? `🚐 ${this.selCount}人 乗せて出発` : '乗車なしで出発') : '人数を選んでください'}</button>
-      <p class="note">名簿・出欠の確認は別途行うので、ここは保険記録用の人数だけでOK。</p></div>
-      <button class="link" data-testid="undo">↩ 到着を取り消す（学校を間違えた）</button>
+    const kids = this.childrenAt(stop.school);
+    let h = `<div class="banner go" data-testid="at-school">📍 ${esc(stop.school)}<span class="t">到着 ${esc(stop.arriveAt)}</span></div>`;
+
+    if (kids.length) {
+      // 誰が乗ったかを名前で選ぶ。人数は選んだ数から決まる
+      const n = this.picked.size;
+      h += `<div class="card"><h2>乗せた児童をタップ（${esc(stop.school)}）</h2>
+        <div class="kids">${kids.map(c => `<button class="kid${this.picked.has(c.name) ? ' on' : ''}"
+          data-kid="${esc(c.name)}"><b>${esc(c.alias)}</b><small>${esc(c.grade)}</small></button>`).join('')}</div>
+        <button class="big" data-testid="board"${n || this.noRider ? '' : ' disabled'}>${
+          n ? `🚐 ${n}人 乗せて出発` : this.noRider ? '乗車なしで出発' : '乗せた児童を選んでください'}</button>
+        <button class="big secondary${this.noRider ? ' on' : ''}" data-testid="no-rider">${
+          this.noRider ? '✓ 乗車なし（選び直す）' : 'この学校では乗車なし'}</button>
+        <p class="note">報告書には正式な氏名で載ります。ここは呼び名で選べます。</p></div>`;
+    } else {
+      // 児童が未登録のあいだは、これまでどおり人数で記録できる
+      h += `<div class="card"><h2>乗せた人数をタップ</h2><div class="counts">`;
+      for (let i = 1; i <= 8; i++) h += `<button data-count="${i}"${this.selCount === i ? ' class="on"' : ''}>${i}</button>`;
+      h += `<button class="zero${this.selCount === 0 ? ' on' : ''}" data-count="0">乗車なし（0人）</button></div>
+        <button class="big" data-testid="board"${this.selCount !== null ? '' : ' disabled'}>${
+          this.selCount !== null ? (this.selCount > 0 ? `🚐 ${this.selCount}人 乗せて出発` : '乗車なしで出発') : '人数を選んでください'}</button>
+        <p class="note">児童を「設定」に登録すると、ここで名前を選べるようになります。</p></div>`;
+    }
+
+    h += `<button class="link" data-testid="undo">↩ 到着を取り消す（学校を間違えた）</button>
       <button class="link danger" data-testid="reset">⟳ この運行をリセット（最初からやり直す）</button>`;
     return h;
   }
@@ -381,10 +412,32 @@ export class App {
     this.root.querySelectorAll<HTMLElement>('[data-count]').forEach(b => b.onclick = () => {
       this.selCount = Number(b.dataset.count); this.render();
     });
+    this.root.querySelectorAll<HTMLElement>('[data-kid]').forEach(b => b.onclick = () => {
+      const name = b.dataset.kid!;
+      if (this.picked.has(name)) this.picked.delete(name); else this.picked.add(name);
+      this.noRider = false;
+      this.render();
+    });
+    q('[data-testid=no-rider]')?.addEventListener('click', () => {
+      this.noRider = !this.noRider;
+      if (this.noRider) this.picked.clear();
+      this.render();
+    });
     q('[data-testid=board]')?.addEventListener('click', () => {
-      if (!t || this.selCount === null) return;
-      const n = this.selCount; this.selCount = null;
-      this.run(() => this.store.departSchool(t.id, n), n > 0 ? `${n}人の乗車を記録` : '出発を記録');
+      if (!t) return;
+      const open = this.openStop(t);
+      const kids = open ? this.childrenAt(open.school) : [];
+      if (kids.length) {
+        if (!this.picked.size && !this.noRider) return;
+        const riders = kids.filter(c => this.picked.has(c.name)).map(c => ({ name: c.name, alias: c.alias }));
+        this.picked.clear(); this.noRider = false;
+        this.run(() => this.store.departSchool(t.id, riders),
+          riders.length ? `${riders.map(r => r.alias).join('・')} の乗車を記録` : '出発を記録');
+      } else {
+        if (this.selCount === null) return;
+        const n = this.selCount; this.selCount = null;
+        this.run(() => this.store.departSchool(t.id, [], n), n > 0 ? `${n}人の乗車を記録` : '出発を記録');
+      }
     });
     q('[data-testid=return]')?.addEventListener('click', () => { this.returning = true; this.render(); });
     q('[data-testid=return-cancel]')?.addEventListener('click', () => { this.returning = false; this.render(); });
@@ -419,12 +472,15 @@ export class App {
     });
 
     q('[data-testid=undo]')?.addEventListener('click', () => {
-      if (t) { this.selCount = null; this.run(() => this.store.undoLast(t.id), '取り消しました'); }
+      if (t) {
+        this.selCount = null; this.picked.clear(); this.noRider = false;
+        this.run(() => this.store.undoLast(t.id), '取り消しました');
+      }
     });
     q('[data-testid=reset]')?.addEventListener('click', () => {
       if (!t) return;
       if (!confirm('この運行の記録をすべて破棄して、出発前の状態に戻します。よろしいですか？\n（確定済みの過去の運行は消えません）')) return;
-      this.selCount = null;
+      this.selCount = null; this.picked.clear(); this.noRider = false;
       this.run(() => this.store.cancelTrip(t.id), '運行をリセットしました');
     });
   }

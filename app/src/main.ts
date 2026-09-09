@@ -21,6 +21,8 @@ if (new URLSearchParams(location.search).get('mock') === '1') {
     const d = new Date(); d.setHours(h ?? 0, m ?? 0, 0, 0); setNow(d);
   };
   const store = new MemoryStore();
+  // 児童を登録した状態を、自動テストから作れるようにする
+  (window as unknown as { seedKids?: () => void }).seedKids = () => store.seedChildren();
   passwordGate(root, {
     title: '送迎記録', note: NOTE,
     signIn: async pw => {
