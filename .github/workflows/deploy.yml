@@ -43,6 +43,12 @@ jobs:
         run: npm run build
       - name: 集計ロジックの検証
         run: npm test
+      # ルールの検証は Firestore エミュレータで行う。firebase-tools は Java 21 以上を要求し、
+      # 実行環境の既定は古いことがあるので、ここで入れておく
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: セキュリティルールの検証
         run: npm run test:rules
       - name: ブラウザでの確認
