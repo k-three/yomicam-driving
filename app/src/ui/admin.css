@@ -46,6 +46,13 @@ td.name{white-space:nowrap}
 .st.run{color:var(--accent);background:var(--accent-soft)}
 .st.idle{color:var(--muted);background:var(--chip)}
 .tl-label .place{margin-top:3px;line-height:1.45}
+.tl-label .mini{margin-left:6px;vertical-align:middle}
+
+/* アルコールチェックの表。時刻そのものを押して直せるようにしてある */
+.mini.rec{font-variant-numeric:tabular-nums;background:transparent;border-color:transparent;
+  padding:4px 8px;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.mini.rec:hover{background:var(--chip);border-color:var(--line);text-decoration:none}
+td .none{color:var(--muted);margin-right:6px}
 
 .tl-track{position:relative;height:34px}
 .tl-axis .tl-track{height:22px}

@@ -158,7 +158,12 @@ export class App {
     // 取り消しは求めない（記録簿は最後の運転後を採るので、上書きでよい）
     const postStale = !!post && !!lastBack && post.at < lastBack;
 
+    // 運行が1件も無いのに運転後まで記録されている状態。運行を消したときに起きる。
+    // 「終了しました」と出すのは実態と合わないので、別の段階として扱う
+    const orphan = done === 0 && !!post;
+
     const step = !pre ? 'before'
+      : orphan ? 'orphan'
       : (!post || postStale) ? (done ? 'driving' : 'ready')
       : 'finished';
 
@@ -168,6 +173,7 @@ export class App {
         ready: '② 出発できます',
         driving: `② 本日 ${done}回 運行しました${lastBack ? `（最後に拠点へ戻ったのは ${esc(lastBack)}）` : ''}`,
         finished: '✅ 本日の運転は終了しました',
+        orphan: '⚠ 本日の運行がありません',
       }[step]}</b>
       <span>${{
         before: '検知器で測ってから記録してください',
@@ -176,6 +182,7 @@ export class App {
           ? 'その後もう1度運転しているので、<b>運転後のチェックを記録し直してください</b>（最後の記録が採用されます）'
           : '運転を終えるときは、<b>必ず運転後のアルコールチェックを記録</b>してください（法定の記録です）',
         finished: `運転後 ${esc(post?.at ?? '')} に記録済み。おつかれさまでした`,
+        orphan: 'アルコールチェックの記録だけが残っています。試し入力なら下から削除してください',
       }[step]}</span></div>`;
 
     h += `<div class="card"><h2>アルコールチェック（1日の最初と最後の2回）</h2>
@@ -183,7 +190,14 @@ export class App {
       <p class="note"><b>0.00</b> はアルコール検知器の表示です。検知器が <b>0.00</b> なら
         「✓ 0.00 で記録」をタップ。時刻と確認者は自動で入ります。</p></div>`;
 
-    if (step === 'before') {
+    if (step === 'orphan') {
+      // 運行が無いのにチェックだけ残っている。消すか、もう1度出発するかを選ばせる
+      h += `<button class="big secondary danger" data-testid="clear-alc">
+        🗑 本日のアルコールチェックを削除する</button>
+        <p class="note" style="text-align:center">運行の記録がないため、この記録簿は実態と合いません。
+          実際に確認を行っていた場合は削除せず、そのまま出発してください。</p>
+        <button class="big" data-testid="depart">🚐 出発する</button>`;
+    } else if (step === 'before') {
       h += `<button class="big" data-testid="depart" disabled>🚐 出発する</button>
         <p class="note" style="text-align:center">先に上の「運転前」を記録してください。</p>`;
     } else if (step === 'finished') {
@@ -273,6 +287,18 @@ export class App {
     });
     this.root.querySelectorAll<HTMLElement>('[data-undo]').forEach(b => b.onclick = () => {
       this.run(() => this.store.undoAlcohol(b.dataset.undo as AlcoholCheck['kind'], this.driver), '取り消しました');
+    });
+
+    q('[data-testid=clear-alc]')?.addEventListener('click', () => {
+      const mine = this.snap!.checks.filter(c => c.driver === this.driver);
+      if (!confirm(
+        `本日のアルコールチェックの記録 ${mine.length}件 を削除します。\n\n`
+        + '実際に確認を行った記録であれば、削除しないでください（1年間の保存義務があります）。\n\n'
+        + '削除してよろしいですか？')) return;
+      this.run(async () => {
+        for (const kind of ['運転後', '運転前'] as const)
+          for (const c of mine.filter(x => x.kind === kind)) await this.store.deleteAlcohol(c.id);
+      }, 'アルコールチェックを削除しました');
     });
 
     q('[data-testid=depart]')?.addEventListener('click', () => {

@@ -151,9 +151,11 @@ export function openAlcoholEditor(
   check: AlcoholCheck | null, config: Config, defaultDate: string,
   // 追記のときも修正のときも、欠けたフィールドを作らないよう全項目を渡す
   handlers: { save: (rec: Omit<AlcoholCheck, 'id'>) => void; remove?: () => void },
+  // 表のどのマスから開いたか。運転者と種別を最初から入れておく
+  seed: { driver?: string; kind?: AlcoholCheck['kind'] } = {},
 ) {
   const c: AlcoholCheck = check ?? {
-    id: '', date: defaultDate, kind: '運転前', driver: config.drivers[0] ?? '',
+    id: '', date: defaultDate, kind: seed.kind ?? '運転前', driver: seed.driver || config.drivers[0] || '',
     vehicle: config.vehicles[0]?.name ?? '', at: '', result: '0.00', inspection: '良',
     note: '良好', checker: config.inspectors[0] ?? '安全運転管理者', method: '対面',
   };

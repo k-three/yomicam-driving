@@ -38,7 +38,7 @@ test('運行の記録をその場で直せる', async ({ page }) => {
   // パッソは運転前チェックが無く、2時間10分たっていて要確認になっている
   await expect(page.getByTestId('alerts')).toHaveText('⚠ 要確認 2件');
 
-  await page.getByRole('row', { name: /パッソ/ }).getByRole('button', { name: '修正' }).click();
+  await page.getByTestId('tl-row').filter({ hasText: 'パッソ' }).getByRole('button', { name: '修正' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
 
@@ -55,7 +55,7 @@ test('運行の記録をその場で直せる', async ({ page }) => {
 
 test('時刻の形が違うと保存できない', async ({ page }) => {
   await page.goto('admin.html?mock=1');
-  await page.getByRole('row', { name: /パッソ/ }).getByRole('button', { name: '修正' }).click();
+  await page.getByTestId('tl-row').filter({ hasText: 'パッソ' }).getByRole('button', { name: '修正' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('状態').selectOption('done');
   await dialog.getByRole('button', { name: '保存する' }).click();
@@ -108,7 +108,7 @@ test('印刷の体裁を確かめる', async ({ page }) => {
 test('修正の画面を撮る', async ({ page }) => {
   await page.goto('admin.html?mock=1');
   await page.screenshot({ path: 'tests/shot-admin.png', fullPage: true });
-  await page.getByRole('row', { name: /パッソ/ }).getByRole('button', { name: '修正' }).first().click();
+  await page.getByTestId('tl-row').filter({ hasText: 'パッソ' }).getByRole('button', { name: '修正' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.screenshot({ path: 'tests/shot-edit.png' });
 });
@@ -131,7 +131,7 @@ test('マスタ未登録なら設定を促し、登録すると消える', async
   await expect(page.getByTestId('setup-notice')).toBeHidden();
   // 実名は設定から入り、コードには残らない
   await page.getByRole('button', { name: '運行状況' }).click();
-  await page.getByRole('button', { name: '＋ アルコールチェックを追記' }).click();
+  await page.getByTestId('alcohol-row').first().getByRole('button', { name: '追記' }).first().click();
   await expect(page.getByRole('dialog').getByLabel('運転者')).toContainText('山田太郎');
 });
 
@@ -165,19 +165,39 @@ test('運行を削除すると、残ったアルコールチェックの扱い�
 
   // 運転者J はハイエースで2回運行し、アルコールも記録済み。
   // 2件とも削除すると、この運転者の運行が1件も無くなる
-  const before = await page.getByTestId('check-fix-row').count();
-  expect(before).toBeGreaterThan(0);
+  await expect(page.getByTestId('alcohol-row').filter({ hasText: '運転者J' })).toHaveCount(1);
 
-  for (const at of ['13:05', '14:05']) {
-    await page.getByTestId('trip-fix-row').filter({ hasText: at })
-      .getByRole('button', { name: '修正' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'この運行を削除' }).click();
-  }
+  // 完了した運行は「本日の完了運行」から、運行中は時系列の行から直せる
+  await page.getByTestId('done-row').filter({ hasText: '13:05' })
+    .getByRole('button', { name: '修正' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'この運行を削除' }).click();
+  await page.getByTestId('tl-row').filter({ hasText: 'ハイエース' })
+    .getByRole('button', { name: '修正' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'この運行を削除' }).click();
 
   // 2件目の削除で「アルコールチェックも消すか」を聞かれる
   expect(asked.join('\n')).toContain('アルコールチェックの記録が');
   // OK したので、運転者J のチェックだけが消えている（他の運転者のぶんは残る）
-  await expect(page.getByTestId('check-fix-row').filter({ hasText: '運転者J' })).toHaveCount(0);
-  await expect(page.getByTestId('check-fix-row').filter({ hasText: '運転者K' })).toHaveCount(1);
+  await expect(page.getByTestId('alcohol-row').filter({ hasText: '運転者J' })).toHaveCount(0);
+  await expect(page.getByTestId('alcohol-row').filter({ hasText: '運転者K' })).toHaveCount(1);
 });
 
+
+test('警告の出ている場所から、そのまま直せる', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+  const row = page.getByTestId('alcohol-row').filter({ hasText: '運転者H' });
+
+  // 運転者H は運転前が未記録。その行から「追記」でき、運転者と種別が入っている
+  await expect(row).toContainText('運転前が未記録');
+  await row.getByRole('button', { name: '追記' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('運転者')).toHaveValue('運転者H');
+  await expect(dialog.getByLabel('種別')).toHaveValue('運転前');
+  await dialog.getByLabel('時刻').fill('12:00');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+  await expect(row).not.toContainText('運転前が未記録');
+
+  // 記録済みの時刻はそのまま押して直せる
+  await row.getByRole('button', { name: /12:00/ }).click();
+  await expect(page.getByRole('dialog').getByLabel('時刻')).toHaveValue('12:00');
+});

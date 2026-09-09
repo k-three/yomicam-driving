@@ -1,9 +1,17 @@
 /** 管理者向けの進捗ダッシュボード。運転手アプリとは別の入口・別の権限で開く。 */
 import type { Board } from '../domain/status';
+import type { AlcoholCheck } from '../domain/types';
 import { totalCount } from '../domain/reports';
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
+
+/** アルコールチェックの1マス。記録があれば押して直せるようにし、無ければ追記させる。
+ *  警告を出している場所と、直す場所を離さないための作り。 */
+const cell = (rec: AlcoholCheck | undefined, driver: string, kind: string) => rec
+  ? `<button class="mini rec" data-fix-alc="${esc(rec.id)}">${esc(rec.at)}　${esc(rec.result)}</button>`
+  : `<span class="none">—</span>
+     <button class="mini" data-add-alc="${esc(driver)}|${esc(kind)}">追記</button>`;
 
 const table = (head: string[], rows: string[], empty: string) =>
   `<div class="tablewrap">${rows.length
@@ -20,13 +28,14 @@ export function renderBoard(b: Board, today: string, nowHm: string): string {
 </div>
 
 <section><h2>本日の完了運行（${b.done.length}件）</h2>
-${table(['時間帯', '車両', '運転者', '乗車', '到着場所', '経由・備考'],
+${table(['時間帯', '車両', '運転者', '乗車', '到着場所', '経由・備考', ''],
   b.done.map(t => `<tr data-testid="done-row">
     <td class="num">${esc(t.departAt)}〜${esc(t.returnAt || '（未記録）')}</td>
     <td class="name">${esc(t.vehicle)}</td><td class="name">${esc(t.driver)}</td><td class="num">${totalCount(t)}</td>
     <td>${esc(t.dest)}</td>
     <td>${esc(t.stops.map(s => `${s.school} ${s.arriveAt}→${s.departAt}（${s.count}人）`).join(' ／ '))}${
-      t.note ? `　${esc(t.note)}` : ''}</td></tr>`),
+      t.note ? `　${esc(t.note)}` : ''}</td>
+    <td><button class="mini" data-fix-trip="${esc(t.id)}">修正</button></td></tr>`),
   'まだありません')}
 </section>
 
@@ -34,10 +43,11 @@ ${table(['時間帯', '車両', '運転者', '乗車', '到着場所', '経由�
 ${table(['運転者', '運転前', '運転後', '状態'],
   b.alcohol.map(a => `<tr class="${a.ng ? 'alert' : ''}" data-testid="alcohol-row">
     <td class="name">${esc(a.driver)}</td>
-    <td class="num">${a.pre ? `${esc(a.pre.at)}　${esc(a.pre.result)}` : '—'}</td>
-    <td class="num">${a.post ? `${esc(a.post.at)}　${esc(a.post.result)}` : '—'}</td>
+    <td class="num">${cell(a.pre, a.driver, '運転前')}</td>
+    <td class="num">${cell(a.post, a.driver, '運転後')}</td>
     <td class="${a.ng ? 'worry' : ''}">${esc(a.state)}</td></tr>`),
   'まだありません')}
+<p class="note">時刻をタップすると直せます。記録が無いところは「追記」から足せます。</p>
 </section>
 
 <section><h2>本日の動き（新しい順・全車両）</h2>

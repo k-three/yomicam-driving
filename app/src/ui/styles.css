@@ -106,6 +106,9 @@ button{font-family:inherit;cursor:pointer}
 /* 運行後・運転後チェック前。法定の記録が残っている状態なので注意の色にする */
 .today[data-step="driving"]{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
 .today[data-step="finished"]{background:var(--chip);border:1px solid var(--line);color:var(--ink)}
+/* 運行が無いのにチェックだけ残っている。実態と合わないので注意の色で出す */
+.today[data-step="orphan"]{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger)}
+.big.secondary.danger{color:var(--danger);border-color:var(--danger)}
 .big + .big{margin-top:10px}
 
 /* いま見ている版。古い画面が残っていないかを確かめるために出す */

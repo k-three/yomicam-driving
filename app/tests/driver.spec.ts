@@ -191,3 +191,30 @@ test('誤って記録した運行を、運転手が自分で削除できる', as
   // 残るアルコールチェックの扱いも聞かれる（法定記録なので自動では消さない）
   expect(asked.join('\n')).toContain('アルコールチェックの記録が');
 });
+
+test('運行を全部消したら「終了しました」ではなく、チェックの削除を促す', async ({ page }) => {
+  // 削除の確認は通し、アルコールをまとめて消すかどうかは断る
+  page.on('dialog', d => (d.message().includes('アルコールチェックの記録が')
+    ? d.dismiss() : d.accept()));
+
+  await unlock(page);
+  await page.getByTestId('alc-record-運転前').click();
+  await page.getByTestId('depart').click();
+  await page.getByTestId('return').click();
+  await page.getByTestId('finish').click();
+  await page.getByRole('button', { name: /本日の運転を終える/ }).click();
+  await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
+
+  // 運行を消すと、運行が無いのにチェックだけ残った状態になる
+  await page.getByRole('button', { name: '修正' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'この運行を削除' }).click();
+
+  await expect(page.getByTestId('today')).toContainText('本日の運行がありません');
+  await expect(page.getByTestId('today')).not.toContainText('終了しました');
+  await page.screenshot({ path: 'tests/shot-orphan.png', fullPage: true });
+
+  // その場でまとめて消せる
+  await page.getByTestId('clear-alc').click();
+  await expect(page.getByTestId('alc-record-運転前')).toBeVisible();   // 未記録に戻る
+  await expect(page.getByTestId('today')).toContainText('運転前のアルコールチェックから');
+});

@@ -43,11 +43,15 @@ export function renderTimeline(lanes: Lane[], nowHm: string): string {
     const state = lane.running
       ? `<em class="st run">🚐 運行中 ${esc(hm(lane.elapsedMin))}${lane.onboard ? `・乗車${lane.onboard}人` : ''}</em>`
       : `<em class="st idle">✓ ${esc(lane.trips.length)}回 運行・待機中</em>`;
+    // 運行中の記録は完了運行の表に出ないので、直す導線をここに置く
+    const open = lane.trips.find(t => t.status === 'running');
+    const fix = open
+      ? `<button class="mini" data-fix-trip="${esc(open.id)}">修正</button>` : '';
     return `<div class="tl-row${alert ? ' alert' : ''}" data-testid="tl-row">
       <div class="tl-label">
         <b>${esc(lane.vehicle)}</b>
         <small>${esc(lane.driver)}</small>
-        ${state}
+        ${state}${fix}
         <small class="place">${esc(lane.place)}</small>
         ${alert ? `<em class="tl-warn">⚠ ${esc(worries.join(' ／ '))}</em>` : ''}
       </div>

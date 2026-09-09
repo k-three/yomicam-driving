@@ -96,34 +96,7 @@ export class AdminApp {
     const s = this.snap!;
     const now = hhmm();
     const board = buildBoard(s.trips, s.checks, now, ALERT);
-    return renderTimeline(board.lanes, now) + renderBoard(board, s.today, now) + this.fixList();
-  }
-
-  /** その日の記録を1件ずつ直せるようにする。時系列の表からは直接たどれないため */
-  private fixList() {
-    const s = this.snap!;
-    const trips = [...s.trips].sort((a, b) => a.departAt.localeCompare(b.departAt));
-    return `<section><h2>記録を直す（本日）</h2>
-      <div class="tablewrap"><table><thead><tr>
-        <th>出発</th><th>車両</th><th>運転者</th><th>状態</th><th>内容</th><th></th></tr></thead>
-        <tbody>${trips.length ? trips.map(t => `<tr data-testid="trip-fix-row">
-          <td class="num">${esc(t.departAt)}</td>
-          <td class="name">${esc(t.vehicle)}</td><td class="name">${esc(t.driver)}</td>
-          <td class="name">${t.status === 'running' ? '運行中' : '完了'}</td>
-          <td>${esc(t.stops.map(x => `${x.school} ${x.arriveAt}→${x.departAt || '（未）'}`).join(' ／ ') || '立ち寄りなし')}</td>
-          <td><button class="mini" data-fix-trip="${esc(t.id)}">修正</button></td></tr>`).join('')
-          : `<tr><td class="empty" colspan="6">本日の運行はまだありません</td></tr>`}</tbody></table></div>
-
-      <h2 style="margin-top:16px">アルコールチェックを直す（本日）</h2>
-      <div class="tablewrap"><table><thead><tr>
-        <th>時刻</th><th>運転者</th><th>種別</th><th>結果</th><th></th></tr></thead>
-        <tbody>${s.checks.length ? s.checks.map(c => `<tr data-testid="check-fix-row">
-          <td class="num">${esc(c.at)}</td><td class="name">${esc(c.driver)}</td>
-          <td class="name">${esc(c.kind)}</td><td class="num">${esc(c.result)}</td>
-          <td><button class="mini" data-fix-alc="${esc(c.id)}">修正</button></td></tr>`).join('')
-          : `<tr><td class="empty" colspan="5">本日の記録はまだありません</td></tr>`}</tbody></table></div>
-      <button class="mini" data-act="add-alc" style="margin-top:10px">＋ アルコールチェックを追記</button>
-    </section>`;
+    return renderTimeline(board.lanes, now) + renderBoard(board, s.today, now);
   }
 
   // ------------------------------------------------------------ 月次帳票
@@ -217,9 +190,12 @@ export class AdminApp {
       });
     });
 
-    on('[data-act=add-alc]', () => openAlcoholEditor(null, this.config, this.snap!.today, {
-      save: rec => this.run(() => this.store.addAlcohol(rec), '記録を追記しました'),
-    }));
+    on('[data-add-alc]', el => {
+      const [driver, kind] = (el.dataset.addAlc ?? '').split('|');
+      openAlcoholEditor(null, this.config, this.snap!.today, {
+        save: rec => this.run(() => this.store.addAlcohol(rec), '記録を追記しました'),
+      }, { driver, kind: kind as AlcoholCheck['kind'] });
+    });
 
     on('[data-print]', el => {
       const k = el.dataset.print as ReportKind;
