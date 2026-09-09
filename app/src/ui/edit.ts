@@ -21,7 +21,9 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 function dialog(title: string, body: string, opt: { danger?: string } = {}): HTMLDialogElement {
   const d = document.createElement('dialog');
   d.className = 'editor';
-  d.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2>
+  // 見出しに焦点を当てておく。入力欄に当たると、スマホでは選択メニューが
+  // 勝手に開いて誤操作のもとになる
+  d.innerHTML = `<form method="dialog"><h2 tabindex="-1">${esc(title)}</h2>
     <div class="fields">${body}</div>
     <p class="err" data-err hidden></p>
     <menu>
@@ -33,6 +35,7 @@ function dialog(title: string, body: string, opt: { danger?: string } = {}): HTM
   document.body.appendChild(d);
   d.addEventListener('close', () => d.remove());
   d.showModal();
+  d.querySelector<HTMLElement>('h2')!.focus();
   return d;
 }
 
@@ -78,12 +81,9 @@ export function openTripEditor(
     <td><button type="button" class="mini danger" data-del="${i}">削除</button></td></tr>`;
 
   const d = dialog(`運行の修正　${trip.date}`, `
+    <p class="who">${esc(trip.vehicle)}・${esc(trip.driver)}</p>
     <div class="grid2">
-      ${row('車両', `<select name="vehicle">${opts(withCurrent(config.vehicles.map(v => v.name), trip.vehicle), trip.vehicle)}</select>`)}
-      ${row('運転者', `<select name="driver">${opts(withCurrent(config.drivers, trip.driver), trip.driver)}</select>`)}
-      ${row('出発地', `<select name="base">${opts(withCurrent(config.bases, trip.base), trip.base)}</select>`)}
       ${row('出発時刻', timeInput('departAt', trip.departAt))}
-      ${row('到着場所', `<select name="dest">${opts(withCurrent(config.bases, trip.dest), trip.dest)}</select>`)}
       ${row('拠点到着時刻', timeInput('returnAt', trip.returnAt), '空欄のままだと運行中の扱いになります')}
       ${row('状態', `<select name="status">
         <option value="running"${trip.status === 'running' ? ' selected' : ''}>運行中</option>
@@ -99,7 +99,17 @@ export function openTripEditor(
       ${row('引き渡し', `<label class="chk"><input name="handover" type="checkbox"${trip.handover ? ' checked' : ''}> 拠点の担当者に引き渡した</label>`)}
     </div>
     ${row('特記', `<input name="note" value="${esc(trip.note)}" placeholder="修正の理由など">`,
-      '直した理由を残しておくと、後から経緯を追えます')}`,
+      '直した理由を残しておくと、後から経緯を追えます')}
+
+    <details class="fold"><summary>運転者・車両・場所を変える</summary>
+      <p class="note">ふだんは触りません。取り違えて記録したときだけ使います。</p>
+      <div class="grid2">
+        ${row('車両', `<select name="vehicle">${opts(withCurrent(config.vehicles.map(v => v.name), trip.vehicle), trip.vehicle)}</select>`)}
+        ${row('運転者', `<select name="driver">${opts(withCurrent(config.drivers, trip.driver), trip.driver)}</select>`)}
+        ${row('出発地', `<select name="base">${opts(withCurrent(config.bases, trip.base), trip.base)}</select>`)}
+        ${row('到着場所', `<select name="dest">${opts(withCurrent(config.bases, trip.dest), trip.dest)}</select>`)}
+      </div>
+    </details>`,
     handlers.remove ? { danger: 'この運行を削除' } : {});
 
   const body = d.querySelector<HTMLElement>('[data-stops]')!;

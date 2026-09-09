@@ -65,6 +65,9 @@ test('出発から拠点到着までを記録できる', async ({ page }) => {
   // 入れたメモは、管理者が直す画面から確認できる
   await page.getByRole('button', { name: '修正' }).click();
   await expect(page.getByRole('dialog').getByLabel('特記')).toHaveValue('道路工事で迂回した');
+  // 必要なときは開いて変えられる
+  await page.getByRole('dialog').getByText('運転者・車両・場所を変える').click();
+  await expect(page.getByRole('dialog').getByLabel('運転者')).toBeVisible();
 });
 
 test('運転後を記録すると、終了したことが画面で分かる', async ({ page }) => {
@@ -171,6 +174,14 @@ test('自分の運行を、その場で直せる', async ({ page }) => {
   await page.getByRole('button', { name: '修正' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
+
+  // 開いた直後に入力欄へ焦点が当たっていない（スマホで選択メニューが勝手に開くのを防ぐ）
+  expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('H2');
+  // 運転者と車両は畳んである。ふだんは触らない
+  await expect(dialog.getByLabel('運転者')).toBeHidden();
+  await expect(dialog.getByText('パッソ・運転者H')).toBeVisible();
+  await page.screenshot({ path: 'tests/shot-fix.png' });
+
   await dialog.getByLabel('拠点到着時刻').fill('17:30');
   await dialog.getByRole('button', { name: '保存する' }).click();
 
