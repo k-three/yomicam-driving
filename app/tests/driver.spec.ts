@@ -238,3 +238,29 @@ test('運転手も全車両の運行状況を見られる（直せはしない�
   await page.getByRole('button', { name: '記録' }).click();
   await expect(page.getByTestId('enroute')).toContainText('運行中');
 });
+
+test('0.00 以外の値と、対面以外の確認方法も記録できる', async ({ page }) => {
+  await unlock(page);
+  await page.getByTestId('alc-detail-運転前').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByLabel('検知器の表示').fill('0.15');
+  await dialog.getByLabel('確認方法').selectOption('写真送付');
+  await dialog.getByLabel('備考').fill('自宅から出発のため写真で確認');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+
+  // 値と確認方法が記録に残る
+  await expect(page.getByTestId('alc-運転前')).toContainText('⚠ 0.15');
+  await expect(page.getByTestId('alc-運転前')).toContainText('写真送付');
+
+  // 検出されているあいだは出発できない
+  await expect(page.getByTestId('today')).toContainText('アルコールが検出されています');
+  await expect(page.getByTestId('depart')).toBeDisabled();
+  await page.screenshot({ path: 'tests/shot-detected.png', fullPage: true });
+
+  // 入力を間違えた場合は取り消してやり直せる
+  await page.getByRole('button', { name: '取消' }).click();
+  await page.getByTestId('alc-record-運転前').click();
+  await expect(page.getByTestId('depart')).toBeEnabled();
+});

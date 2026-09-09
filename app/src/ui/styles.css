@@ -107,7 +107,11 @@ button{font-family:inherit;cursor:pointer}
 .today[data-step="driving"]{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
 .today[data-step="finished"]{background:var(--chip);border:1px solid var(--line);color:var(--ink)}
 /* 運行が無いのにチェックだけ残っている。実態と合わないので注意の色で出す */
-.today[data-step="orphan"]{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger)}
+.today[data-step="orphan"],
+/* 検知器に数値が出ている。運行させてはいけない状態 */
+.today[data-step="detected"]{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger)}
+/* 「0.00 以外・別の方法で記録」。ふだんは使わないので控えめに置く */
+.row.sub{justify-content:flex-end;padding-top:0;border-top:none;margin-top:-6px}
 .big.secondary.danger{color:var(--danger);border-color:var(--danger)}
 .big + .big{margin-top:10px}
 

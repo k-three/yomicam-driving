@@ -8,7 +8,7 @@ import { InputError, type Snapshot, type Store } from '../store/store';
 import { normResult } from '../domain/time';
 import { totalCount } from '../domain/reports';
 import { toast } from './toast';
-import { openTripEditor } from './edit';
+import { openAlcoholQuick, openTripEditor } from './edit';
 import { buildBoard } from '../domain/status';
 import { renderBoard } from './board';
 import { renderTimeline, attachTooltip } from './timeline';
@@ -160,14 +160,18 @@ export class App {
     if (rec) {
       const ng = normResult(rec.result) !== '0.00';
       return `<div class="row"><span class="label">${kind}</span>
-        <span class="status${ng ? ' ng' : ''}" data-testid="alc-${kind}">${ng ? '⚠ 検出' : '✓ 0.00'}　${esc(rec.at)}</span>
+        <span class="status${ng ? ' ng' : ''}" data-testid="alc-${kind}">${
+          ng ? `⚠ ${esc(rec.result)}` : '✓ 0.00'}　${esc(rec.at)}${
+          rec.method && rec.method !== '対面' ? `　${esc(rec.method)}` : ''}</span>
         <button class="mini" data-undo="${kind}">取消</button></div>`;
     }
     if (locked)
       return `<div class="row"><span class="label">${kind}</span>
         <span class="status locked" data-testid="alc-${kind}">運転前を記録してから</span></div>`;
     return `<div class="row"><span class="label">${kind}</span>
-      <button class="go" data-quick="${kind}" data-testid="alc-record-${kind}">✓ 0.00 で記録</button></div>`;
+      <button class="go" data-quick="${kind}" data-testid="alc-record-${kind}">✓ 0.00 で記録</button></div>
+      <div class="row sub"><button class="mini" data-detail="${kind}"
+        data-testid="alc-detail-${kind}">0.00 以外・別の方法で記録</button></div>`;
   }
 
   /**
@@ -189,8 +193,11 @@ export class App {
     // 運行が1件も無いのに運転後まで記録されている状態。運行を消したときに起きる。
     // 「終了しました」と出すのは実態と合わないので、別の段階として扱う
     const orphan = done === 0 && !!post;
+    // 検知器に数値が出ている状態。運行させてはいけない
+    const detected = !!pre && normResult(pre.result) !== '0.00';
 
     const step = !pre ? 'before'
+      : detected ? 'detected'
       : orphan ? 'orphan'
       : (!post || postStale) ? (done ? 'driving' : 'ready')
       : 'finished';
@@ -202,6 +209,7 @@ export class App {
         driving: `② 本日 ${done}回 運行しました${lastBack ? `（最後に拠点へ戻ったのは ${esc(lastBack)}）` : ''}`,
         finished: '✅ 本日の運転は終了しました',
         orphan: '⚠ 本日の運行がありません',
+        detected: `⚠ アルコールが検出されています（${esc(pre?.result ?? '')}）`,
       }[step]}</b>
       <span>${{
         before: '検知器で測ってから記録してください',
@@ -211,6 +219,8 @@ export class App {
           : '運転を終えるときは、<b>必ず運転後のアルコールチェックを記録</b>してください（法定の記録です）',
         finished: `運転後 ${esc(post?.at ?? '')} に記録済み。おつかれさまでした`,
         orphan: 'アルコールチェックの記録だけが残っています。試し入力なら下から削除してください',
+        detected: '<b>この状態で運転してはいけません。</b>運行管理担当に連絡してください。'
+          + '入力を間違えた場合は、下の「取消」からやり直せます',
       }[step]}</span></div>`;
 
     h += `<div class="card"><h2>アルコールチェック（1日の最初と最後の2回）</h2>
@@ -218,7 +228,11 @@ export class App {
       <p class="note"><b>0.00</b> はアルコール検知器の表示です。検知器が <b>0.00</b> なら
         「✓ 0.00 で記録」をタップ。時刻と確認者は自動で入ります。</p></div>`;
 
-    if (step === 'orphan') {
+    if (step === 'detected') {
+      h += `<button class="big" data-testid="depart" disabled>🚐 出発する</button>
+        <p class="note" style="text-align:center">
+          検知器の表示が 0.00 でないため、出発できません。</p>`;
+    } else if (step === 'orphan') {
       // 運行が無いのにチェックだけ残っている。消すか、もう1度出発するかを選ばせる
       h += `<button class="big secondary danger" data-testid="clear-alc">
         🗑 本日のアルコールチェックを削除する</button>
@@ -315,6 +329,16 @@ export class App {
         inspection: kind === '運転前' ? '良' : '', note: '良好',
         checker: this.config.inspectors[0] ?? '', method: '対面',
       }), `${kind}チェックを記録`);
+    });
+    this.root.querySelectorAll<HTMLElement>('[data-detail]').forEach(b => b.onclick = () => {
+      const kind = b.dataset.detail as AlcoholCheck['kind'];
+      openAlcoholQuick(kind, this.config, {
+        save: v => this.run(() => this.store.recordAlcohol({
+          kind, driver: this.driver, vehicle: this.vehicle,
+          result: v.result, inspection: v.inspection, note: v.note,
+          checker: this.config.inspectors[0] ?? '', method: v.method,
+        }), `${kind}チェックを記録`),
+      });
     });
     this.root.querySelectorAll<HTMLElement>('[data-undo]').forEach(b => b.onclick = () => {
       this.run(() => this.store.undoAlcohol(b.dataset.undo as AlcoholCheck['kind'], this.driver), '取り消しました');

@@ -226,3 +226,34 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     return null;
   });
 }
+
+// ------------------------------------------ 運転手用（0.00 以外・別の方法）
+
+/** 運転手アプリから、検知器の値と確認方法を入れて記録する。
+ *  ふだんは「✓ 0.00 で記録」の1タップで済むが、
+ *  数値が出たときや、対面で確認できず写真を送ってもらったときはこちらを使う。 */
+export function openAlcoholQuick(
+  kind: AlcoholCheck['kind'], config: Config,
+  handlers: { save: (v: { result: string; method: string; inspection: string; note: string }) => void },
+) {
+  const d = dialog(`${kind}のアルコールチェック`, `
+    ${row('検知器の表示', `<input name="result" value="" placeholder="例：0.15" autocomplete="off">`,
+      '表示されたとおりに入れてください。数値が出ていない場合は 0.00')}
+    ${row('確認方法', `<select name="method">${opts(METHODS, '対面')}</select>`,
+      '対面でない場合（写真を送ってもらった、電話で確認したなど）はここを変えます')}
+    ${kind === '運転前'
+      ? row('日常点検', `<select name="inspection">${opts(['良', '否'], '良')}</select>`)
+      : '<input name="inspection" type="hidden" value="">'}
+    ${row('備考', `<input name="note" value="" placeholder="気づいたことがあれば">`)}
+    <p class="sub note">実施していない記録を作らないでください。1年間の保存義務があります。</p>`);
+
+  wire(d, () => {
+    const result = val(d, 'result');
+    if (!result) return '検知器の表示を入れてください。';
+    handlers.save({
+      result, method: val(d, 'method'),
+      inspection: val(d, 'inspection'), note: val(d, 'note') || '良好',
+    });
+    return null;
+  });
+}
