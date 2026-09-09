@@ -37,7 +37,13 @@ service cloud.firestore {
     // 日本時間の今日。20260908 のような数値にして比べる
     function jst() { return request.time + duration.value(9, 'h'); }
     function todayNum() { return jst().year() * 10000 + jst().month() * 100 + jst().day(); }
-    function isToday() { return resource.data.get('ymd', 0) == todayNum(); }
+    function pad(n) { return n < 10 ? '0' + string(n) : string(n); }
+    function todayStr() { return string(jst().year()) + '-' + pad(jst().month()) + '-' + pad(jst().day()); }
+    // ymd を持たせる前に作られた記録もあるので、日付の文字列でも見る
+    function isToday() {
+      return resource.data.get('ymd', 0) == todayNum()
+        || resource.data.get('date', '') == todayStr();
+    }
     // 日付を後から動かせないようにする（別の月へ付け替えるのを防ぐ）
     function sameDay() {
       return request.resource.data.get('ymd', 0) == resource.data.get('ymd', 0)

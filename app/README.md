@@ -75,7 +75,12 @@ npm test        # 集計ロジックの検証
 npm run dev     # 開発サーバー
 npm run build   # 型チェック＋ビルド
 npm run e2e     # ブラウザを起動して画面を確認（同梱の Chromium を使用）
+npm run test:rules  # セキュリティルールの検証（Firestore エミュレータ。Java が要る）
 ```
+
+**`firestore.rules` を変えたら、必ず `npm run test:rules` を通し、
+コンソールから反映し直すこと。** ルールの反映だけは自動化していないので、
+忘れると「画面はあるのに動かない」状態になる（実際に2度起きた）。
 
 Firebase に触らずに画面だけ見たいときは `?mock=1` を付ける
 （`/?mock=1`、`/admin.html?mock=1`）。自動テストもこれを使う。

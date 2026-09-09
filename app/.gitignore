@@ -6,3 +6,7 @@ playwright-report/
 tests/shot-*.png
 tests/out*.xlsx
 tests/out*.pdf
+
+# エミュレータのログ
+firestore-debug.log
+firebase-debug.log

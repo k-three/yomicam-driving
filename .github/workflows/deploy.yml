@@ -43,6 +43,8 @@ jobs:
         run: npm run build
       - name: 集計ロジックの検証
         run: npm test
+      - name: セキュリティルールの検証
+        run: npm run test:rules
       - name: ブラウザでの確認
         run: |
           npx playwright install --with-deps chromium
