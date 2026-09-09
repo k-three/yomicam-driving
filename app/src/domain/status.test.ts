@@ -124,3 +124,24 @@ describe('運転後チェックの記録し直し', () => {
     expect(b.alcohol.find(a => a.driver === '運転者H')!.ng).toBe(false);
   });
 });
+
+describe('同じ分に続けて記録したとき', () => {
+  it('その中でも新しい順になる（実データで起きた並びの崩れ）', () => {
+    // 続けてタップすると、4件とも同じ分になる
+    const t = trip({ id: 'a', departAt: '11:09', returnAt: '11:09', status: 'done',
+      stops: [{ school: '読谷小学校', arriveAt: '11:09', departAt: '11:09', count: 1 }] });
+    expect(buildBoard([t], [], '12:00', T).events.map(e => e.what)).toEqual([
+      '拠点に到着（運行終了）', '1名 乗せて出発', '学校に到着', '出発',
+    ]);
+  });
+
+  it('同じ分の運行が2つ続いても、あとの運行が上にくる', () => {
+    const a = trip({ id: 'a', departAt: '11:01', returnAt: '11:02', status: 'done' });
+    const b = trip({ id: 'b', departAt: '11:09', returnAt: '11:09', status: 'done' });
+    const events = buildBoard([b, a], [], '12:00', T).events;   // 順不同で渡す
+    expect(events.map(e => `${e.at} ${e.what}`)).toEqual([
+      '11:09 拠点に到着（運行終了）', '11:09 出発',
+      '11:02 拠点に到着（運行終了）', '11:01 出発',
+    ]);
+  });
+});

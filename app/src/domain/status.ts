@@ -92,11 +92,15 @@ export function buildBoard(
     return { driver, pre, post, state, ng };
   });
 
-  const events: Event[] = [];
+  // 同じ分に何件も記録されることがある（続けてタップしたとき）。時刻だけで並べると
+  // その中だけ古い順になってしまうので、起きた順の通し番号を持たせて一緒に逆順にする。
+  const events: (Event & { seq: number })[] = [];
+  let seq = 0;
   const push = (at: string, vehicle: string, what: string, place = '', count: number | '' = '') => {
-    if (at) events.push({ at, vehicle, what, place, count });
+    if (at) events.push({ at, vehicle, what, place, count, seq: seq++ });
   };
-  for (const t of trips) {
+  // 出発順に見ていくので、通し番号はそのまま「起きた順」になる
+  for (const t of [...trips].sort((a, b) => a.departAt.localeCompare(b.departAt))) {
     push(t.departAt, t.vehicle, '出発', t.base);
     for (const s of t.stops) {
       push(s.arriveAt, t.vehicle, '学校に到着', s.school);
@@ -104,8 +108,9 @@ export function buildBoard(
     }
     if (t.status === 'done') push(t.returnAt, t.vehicle, '拠点に到着（運行終了）', t.dest, totalCount(t));
   }
-  // 新しい順。文字列ではなく分に直して比べる（'9:05' と '09:05' が混ざっても崩れない）
-  events.sort((a, b) => (toMin(b.at) ?? 0) - (toMin(a.at) ?? 0));
+  // 新しい順。文字列ではなく分に直して比べる（'9:05' と '09:05' が混ざっても崩れない）。
+  // 同じ時刻なら、起きた順の逆にする
+  events.sort((a, b) => ((toMin(b.at) ?? 0) - (toMin(a.at) ?? 0)) || (b.seq - a.seq));
 
   // 車両ごとに1行へまとめる。同じ車両が1日に何回走っても1行。
   const byVehicle = new Map<string, Trip[]>();
@@ -128,5 +133,5 @@ export function buildBoard(
   }).sort((a, b) => (a.running === b.running ? 0 : a.running ? -1 : 1));
 
   const alerts = running.filter(r => r.worries.length).length + alcohol.filter(a => a.ng).length;
-  return { lanes, running, done, alcohol, events, alerts };
+  return { lanes, running, done, alcohol, events: events.map(({ seq, ...e }) => e), alerts };
 }
