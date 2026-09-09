@@ -1,7 +1,7 @@
 /** 管理者向けの進捗ダッシュボード。運転手アプリとは別の入口・別の権限で開く。 */
 import type { Board } from '../domain/status';
 import type { AlcoholCheck } from '../domain/types';
-import { totalCount } from '../domain/reports';
+import { riderAliases, totalCount } from '../domain/reports';
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
@@ -40,10 +40,11 @@ export function renderBoard(b: Board, today: string, nowHm: string, editable = t
 </div>
 
 <section><h2>本日の完了運行（${b.done.length}件）</h2>
-${table(['時間帯', '車両', '運転者', '乗車', '到着場所', '経由・備考', ...(editable ? [''] : [])],
+${table(['時間帯', '車両', '運転者', '乗せた児童', '到着場所', '経由・備考', ...(editable ? [''] : [])],
   b.done.map(t => `<tr data-testid="done-row">
     <td class="num">${esc(t.departAt)}〜${esc(t.returnAt || '（未記録）')}</td>
-    <td class="name">${esc(t.vehicle)}</td><td class="name">${esc(t.driver)}</td><td class="num">${totalCount(t)}</td>
+    <td class="name">${esc(t.vehicle)}</td><td class="name">${esc(t.driver)}</td>
+    <td>${esc(riderAliases(t) || `${totalCount(t)}人`)}</td>
     <td>${esc(t.dest)}</td>
     <td>${esc(t.stops.map(s => `${s.school} ${s.arriveAt}→${s.departAt}（${s.count}人）`).join(' ／ '))}${
       t.note ? `　${esc(t.note)}` : ''}</td>

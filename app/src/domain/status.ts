@@ -3,10 +3,13 @@
  *  取り消し・リセット・修正はそのまま反映され、消えたものは残らない。 */
 import type { AlcoholCheck, Trip } from './types';
 import { elapsed, hm, isAfter, normResult, toMin } from './time';
-import { totalCount } from './reports';
+import { riderAliases, totalCount } from './reports';
 
 export type RunningRow = {
-  trip: Trip; elapsedMin: number; place: string; onboard: number; worries: string[];
+  trip: Trip; elapsedMin: number; place: string; onboard: number;
+  /** いま乗っている児童の呼び名（画面用。報告書は正式な氏名） */
+  riders: string;
+  worries: string[];
 };
 export type AlcoholRow = { driver: string; pre?: AlcoholCheck; post?: AlcoholCheck; state: string; ng: boolean };
 export type Event = { at: string; vehicle: string; what: string; place: string; count: number | '' };
@@ -16,6 +19,8 @@ export type Event = { at: string; vehicle: string; what: string; place: string; 
 export type Lane = {
   vehicle: string;
   driver: string;          // 直近の運転者
+  /** いま乗っている児童の呼び名。運行中でなければ空 */
+  riders: string;
   trips: Trip[];           // 本日その車両で走ったぶん（運行中を含む・出発順）
   running: boolean;
   /** いまどこにいるか。運行中なら現在地、終わっていれば帰着した場所と時刻 */
@@ -60,7 +65,7 @@ export function buildBoard(
         worries.push(`運行開始から${hm(elapsedMin)}。終了の押し忘れの可能性`);
       if (!checks.some(c => c.kind === '運転前' && c.driver === t.driver))
         worries.push('運転前アルコールチェックが未記録');
-      return { trip: t, elapsedMin, place, onboard: totalCount(t), worries };
+      return { trip: t, elapsedMin, place, onboard: totalCount(t), riders: riderAliases(t), worries };
     });
 
   const done = trips.filter(t => t.status === 'done')
@@ -104,7 +109,10 @@ export function buildBoard(
     push(t.departAt, t.vehicle, '出発', t.base);
     for (const s of t.stops) {
       push(s.arriveAt, t.vehicle, '学校に到着', s.school);
-      if (s.departAt) push(s.departAt, t.vehicle, s.count > 0 ? `${s.count}名 乗せて出発` : '乗車なしで出発', s.school, s.count);
+      if (s.departAt) {
+        const who = s.riders?.length ? s.riders.map(r => r.alias).join('・') : `${s.count}名`;
+        push(s.departAt, t.vehicle, s.count > 0 ? `${who} を乗せて出発` : '乗車なしで出発', s.school, s.count);
+      }
     }
     if (t.status === 'done') push(t.returnAt, t.vehicle, '拠点に到着（運行終了）', t.dest, totalCount(t));
   }
@@ -121,11 +129,11 @@ export function buildBoard(
     const run = running.find(r => r.trip.vehicle === vehicle);
     const last = list[list.length - 1]!;
     if (run) return {
-      vehicle, driver: run.trip.driver, trips: list, running: true,
+      vehicle, driver: run.trip.driver, trips: list, running: true, riders: run.riders,
       place: run.place, elapsedMin: run.elapsedMin, onboard: run.onboard, worries: run.worries,
     };
     return {
-      vehicle, driver: last.driver, trips: list, running: false,
+      vehicle, driver: last.driver, trips: list, running: false, riders: '',
       place: `${last.dest || '拠点'} に ${last.returnAt || '（未記録）'} 帰着`,
       elapsedMin: elapsed(last.departAt, last.returnAt),
       onboard: totalCount(last), worries: [],

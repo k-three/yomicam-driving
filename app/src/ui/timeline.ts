@@ -41,7 +41,8 @@ export function renderTimeline(lanes: Lane[], nowHm: string, editable = true): s
     const alert = worries.length > 0;
     // 「いま動いている車両」の表と同じ内容を、この行に寄せてある（表は廃止）
     const state = lane.running
-      ? `<em class="st run">🚐 運行中 ${esc(hm(lane.elapsedMin))}${lane.onboard ? `・乗車${lane.onboard}人` : ''}</em>`
+      ? `<em class="st run">🚐 運行中 ${esc(hm(lane.elapsedMin))}${
+          lane.riders ? `・${esc(lane.riders)}` : lane.onboard ? `・乗車${lane.onboard}人` : ''}</em>`
       : `<em class="st idle">✓ ${esc(lane.trips.length)}回 運行・待機中</em>`;
     // 運行中の記録は完了運行の表に出ないので、直す導線をここに置く
     const open = editable ? lane.trips.find(t => t.status === 'running') : undefined;

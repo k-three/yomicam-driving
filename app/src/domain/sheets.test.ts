@@ -51,3 +51,42 @@ describe('帳票の表', () => {
     for (const r of rows) expect(String(r[0])).toMatch(/要確認|確認推奨/);
   });
 });
+
+describe('児童の氏名', () => {
+  const kids = [
+    { name: '山田そら', alias: 'そら', school: '渡慶次小学校', grade: '1年', active: true },
+    { name: '田中りおん', alias: 'りおん', school: '渡慶次小学校', grade: '3年', active: true },
+  ];
+  const withRiders = {
+    trips: [{
+      id: 'x', date: '2026-09-10', vehicle: '車両', driver: '運転者', base: '拠点',
+      departAt: '14:00', dest: '拠点', returnAt: '15:00', status: 'done' as const,
+      mokushi: true, handover: true, note: '',
+      stops: [{ school: '渡慶次小学校', arriveAt: '14:20', departAt: '14:30', count: 2,
+                riders: [{ name: '山田そら', alias: 'そら' },
+                         { name: '田中りおん', alias: 'りおん' }] }],
+    }],
+    checks: [], config: { ...CONFIG, children: kids }, ym: '2026-09',
+  };
+
+  it('保険会社向けの利用者欄に、正式な氏名が入る', () => {
+    const rows = reportSheets('insurance', withRiders)[0]!.rows;
+    // 学校まで空車 → 学校で待機 → 児童を乗せて拠点へ
+    expect(String(rows[0]![2])).toBe('待機');
+    expect(String(rows[1]![2])).toBe('待機');
+    expect(String(rows[2]![2])).toBe('山田そら、田中りおん');
+  });
+
+  it('氏名を登録する前の記録は、これまでどおり人数で出る', () => {
+    const rows = reportSheets('insurance', src)[0]!.rows;
+    expect(rows.some(r => String(r[2]).includes('児童'))).toBe(true);
+  });
+
+  it('運行日報には正式な氏名、経由の欄は呼び名', () => {
+    const [head, ...rest] = [reportSheets('trips', withRiders)[0]!.head,
+                             ...reportSheets('trips', withRiders)[0]!.rows];
+    const i = head.indexOf('児童'), j = head.indexOf('経由');
+    expect(String(rest[0]![i])).toBe('山田そら、田中りおん');
+    expect(String(rest[0]![j])).toContain('そら・りおん');
+  });
+});

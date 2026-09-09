@@ -1,7 +1,7 @@
 /** 車両ごとの動きを時系列の帯に変換する。
  *  区間の切り方は保険提出用の輸送記録と同じ考え方（回送・学校待機・乗車）に
  *  そろえてあるので、画面で見た動きと提出する帳票がずれない。 */
-import type { Trip } from './types';
+import type { Rider, Trip } from './types';
 import { toMin } from './time';
 
 export type SpanKind = 'ferry' | 'wait' | 'onboard';
@@ -24,15 +24,21 @@ export const SPAN_LABEL: Record<SpanKind, string> = {
   onboard: '児童を乗せて移動',
 };
 
+/** 乗っている児童。ふだんの画面なので呼び名で出す（報告書は正式な氏名） */
+const riding = (riders: Rider[], n: number) =>
+  riders.length ? riders.map(r => r.alias).join('・') : n ? `児童${n}名` : '';
+
 export function tripSpans(t: Trip, nowHm: string): Span[] {
   const spans: Span[] = [];
   const running = t.status === 'running';
   let place = t.base, at = t.departAt, onboard = 0;
+  let riders: Rider[] = [];
 
   for (const s of t.stops) {
     const kind: SpanKind = onboard > 0 ? 'onboard' : 'ferry';
+    const who = riding(riders, onboard);
     spans.push({ kind, from: at, to: s.arriveAt, label: s.school, live: false,
-      detail: `${at}→${s.arriveAt}　${place} → ${s.school}${onboard ? `（児童${onboard}名）` : '（空車）'}` });
+      detail: `${at}→${s.arriveAt}　${place} → ${s.school}${who ? `（${who}）` : '（空車）'}` });
 
     const open = !s.departAt;
     const end = open ? (running ? nowHm : s.arriveAt) : s.departAt;
@@ -42,13 +48,15 @@ export function tripSpans(t: Trip, nowHm: string): Span[] {
     if (open) return spans;   // 学校に滞在中。ここから先はまだ起きていない
 
     onboard += s.count;
+    riders = [...riders, ...(s.riders ?? [])];
     place = s.school; at = s.departAt;
   }
 
   const end = t.returnAt || (running ? nowHm : at);
   const kind: SpanKind = onboard > 0 ? 'onboard' : 'ferry';
-  spans.push({ kind, from: at, to: end, label: t.dest || '拠点', live: !t.returnAt,
-    detail: `${at}→${t.returnAt || '（移動中）'}　${place} → ${t.dest || '拠点'}${onboard ? `（児童${onboard}名）` : '（空車）'}` });
+  const who = riding(riders, onboard);
+  spans.push({ kind, from: at, to: end, label: who || t.dest || '拠点', live: !t.returnAt,
+    detail: `${at}→${t.returnAt || '（移動中）'}　${place} → ${t.dest || '拠点'}${who ? `（${who}）` : '（空車）'}` });
   return spans;
 }
 

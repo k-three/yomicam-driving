@@ -1,7 +1,7 @@
 /** 月次帳票の集計。Apps Script 版で運用・検証してきたロジックをそのまま移植する。
  *  保険会社ひな形の区間分割、待機の扱い、運転者単位の1日通算、保険料区分は
  *  提出物の根拠になるため、挙動を変えないこと。 */
-import type { Trip, AlcoholCheck, Config, Finding, Day } from './types';
+import type { Trip, AlcoholCheck, Config, Finding, Day, Rider } from './types';
 import { elapsed, hm, normResult, toMin, isAfter } from './time';
 
 export const BRACKETS = [
@@ -16,7 +16,10 @@ export function bracketIndex(min: number): number {
 }
 
 const inMonth = (d: Day, ym: string) => d.slice(0, 7) === ym;
-const passengers = (n: number) => (n > 0 ? `児童${n}名` : '待機');
+/** 保険会社の様式の「利用者」欄。正式な氏名で書く。
+ *  氏名を登録する前の記録は人数しか持っていないので、その場合だけ「児童N名」に落とす。 */
+const passengers = (riders: Rider[], n: number) =>
+  riders.length ? riders.map(r => r.name).join('、') : n > 0 ? `児童${n}名` : '待機';
 export const totalCount = (t: Trip) => t.stops.reduce((s, x) => s + x.count, 0);
 
 export type Segment = {
@@ -48,10 +51,11 @@ export function buildInsuranceReport(trips: Trip[], config: Config, ym: string):
     dailyMin.set(key, (dailyMin.get(key) ?? 0) + elapsed(t.departAt, t.returnAt));
 
     let place = t.base, at = t.departAt, onboard = 0;
+    let riding: Rider[] = [];
     for (const s of t.stops) {
       // 回送（前の地点 → 学校）
       segments.push({
-        driver: t.driver, regno, users: passengers(onboard),
+        driver: t.driver, regno, users: passengers(riding, onboard),
         from: place, to: s.school,
         startDay: t.date, startAt: at, endDay: t.date, endAt: s.arriveAt,
         duration: hm(elapsed(at, s.arriveAt)), note: '',
@@ -60,18 +64,19 @@ export function buildInsuranceReport(trips: Trip[], config: Config, ym: string):
       if (s.departAt && s.departAt !== s.arriveAt) {
         segments.push({
           driver: t.driver, regno,
-          users: onboard > 0 ? `${passengers(onboard)}／待機` : '待機',
+          users: onboard > 0 ? `${passengers(riding, onboard)}／待機` : '待機',
           from: s.school, to: s.school,
           startDay: t.date, startAt: s.arriveAt, endDay: t.date, endAt: s.departAt,
           duration: hm(elapsed(s.arriveAt, s.departAt)), note: '学校で待機',
         });
       }
       onboard += s.count;
+      riding = [...riding, ...(s.riders ?? [])];
       place = s.school; at = s.departAt || s.arriveAt;
     }
     // 最終区間（最後の地点 → 到着場所）
     segments.push({
-      driver: t.driver, regno, users: passengers(onboard),
+      driver: t.driver, regno, users: passengers(riding, onboard),
       from: place, to: t.dest,
       startDay: t.date, startAt: at, endDay: t.date, endAt: t.returnAt,
       duration: hm(elapsed(at, t.returnAt)), note: '',
