@@ -34,6 +34,10 @@ type Tab = 'board' | 'report';
 /** 画面を描き直す間隔。時計と経過時間を進めるためだけに使う */
 const REFRESH_MS = 30_000;
 
+/** 過去の日を見るときの基準時刻。その日の終わり。
+ *  こうしておくと「終了が記録されないまま残った運行」が経過時間の警告として出る */
+const DAY_END = '23:59';
+
 export class AdminApp {
   private snap: Snapshot | null = null;
   private tab: Tab = 'board';
@@ -41,6 +45,11 @@ export class AdminApp {
   private data: { trips: Trip[]; checks: AlcoholCheck[] } | null = null;
   private loading = false;
   private banner: string;
+  /** 運行状況で見ている日。'' なら今日（購読しているリアルタイムの記録）。
+   *  過去の日は読み込みが要るので、当日とは別に持つ。運転手アプリには無い機能 */
+  private day = '';
+  private past: { date: string; trips: Trip[]; checks: AlcoholCheck[] } | null = null;
+  private dayLoading = false;
 
   constructor(private root: HTMLElement, private store: Store, banner = '') {
     this.banner = banner;
@@ -49,7 +58,9 @@ export class AdminApp {
     // 記録に動きが無くても、経過時間と「現在」の線は進める。
     // これが無いと、開きっぱなしの画面が止まって見える。
     setInterval(() => {
-      if (this.tab === 'board' && !document.querySelector('dialog[open]')) this.render();
+      // 過去の日は動かないので描き直さない（日付の入力欄を触っている最中に消さないため）
+      if (this.tab === 'board' && this.snap && this.live && !document.querySelector('dialog[open]'))
+        this.render();
     }, REFRESH_MS);
   }
 
@@ -63,6 +74,8 @@ export class AdminApp {
       else toast('保存できませんでした');
     }
     if (this.tab === 'report') await this.loadMonth(true);
+    // 過去の日は購読していないので、直したら読み直さないと画面に反映されない
+    else if (this.day) await this.loadDay(this.day, true);
   }
 
   private render() {
@@ -93,11 +106,54 @@ export class AdminApp {
 
   // ------------------------------------------------------------ 運行状況
 
+  /** 見ている日が今日か。過去の日を選んでいる間だけ false */
+  private get live() { return !this.day || this.day === this.snap!.today; }
+  /** 運行状況で見ている日付 */
+  private get viewDate() { return this.live ? this.snap!.today : this.day; }
+
+  /** 日付を選ぶ帯。過去の日を見ていることが一目で分かるようにする */
+  private dayBar(date: string) {
+    return `<div class="daypick">
+      <label for="day">表示する日</label>
+      <input type="date" id="day" value="${esc(date)}" max="${esc(this.snap!.today)}">
+      ${this.live ? '<span class="hint">過去の日を選ぶと、その日の運行を表示します</span>'
+        : `<button class="mini" data-act="today">今日に戻る</button>
+           <span class="past" data-testid="past-day">過去の日を表示中</span>`}
+    </div>`;
+  }
+
   private viewBoard() {
     const s = this.snap!;
     const now = hhmm();
-    const board = buildBoard(s.trips, s.checks, now, ALERT);
-    return renderTimeline(board.lanes, now) + renderBoard(board, s.today, now);
+    const live = this.live, past = this.past;
+    const date = this.viewDate;
+    const bar = this.dayBar(date);
+
+    if (!live) {
+      if (this.dayLoading) return bar + '<p class="boot">読み込み中…</p>';
+      // 読めなかったときに「記録が無い日」と見分けが付かないと、記録漏れを疑わせてしまう
+      if (past?.date !== date)
+        return bar + '<p class="boot">この日の記録を読み込めませんでした。日付を選び直してください。</p>';
+    }
+
+    const src = live ? { trips: s.trips, checks: s.checks } : past!;
+    // 過去の日には「いま」が無いので、その日の終わりを基準に組み立てる
+    const board = buildBoard(src.trips, src.checks, live ? now : DAY_END, ALERT);
+    return bar
+      + renderTimeline(board.lanes, live ? now : '', { live })
+      + renderBoard(board, date, now, { live });
+  }
+
+  /** 過去の日の記録を読む。月単位でしか読めないので、読んでからその日で絞る */
+  private async loadDay(date: string, quiet = false) {
+    this.dayLoading = !quiet;
+    if (!quiet) this.render();
+    try {
+      const m = await this.store.loadMonth(date.slice(0, 7));
+      this.past = { date, trips: m.trips.filter(t => t.date === date), checks: m.checks.filter(c => c.date === date) };
+    } catch { toast('その日の記録を読み込めませんでした'); this.past = null; }
+    this.dayLoading = false;
+    this.render();
   }
 
   // ------------------------------------------------------------ 月次帳票
@@ -153,11 +209,24 @@ export class AdminApp {
 
   // -------------------------------------------------------------- 操作
 
+  /** いま見ている日の記録一式。運行を消すときの「その日にもう1件も無いか」の判定に使う */
+  private dayRecords(t: Trip): { trips: Trip[]; checks: AlcoholCheck[] } {
+    const s = this.snap!;
+    if (t.date === s.today) return { trips: s.trips, checks: s.checks };
+    if (this.past?.date === t.date) return this.past;
+    return { trips: this.data?.trips.filter(x => x.date === t.date) ?? [],
+             checks: this.data?.checks.filter(c => c.date === t.date) ?? [] };
+  }
+
   private tripById(id: string): Trip | undefined {
-    return this.snap!.trips.find(t => t.id === id) ?? this.data?.trips.find(t => t.id === id);
+    return this.snap!.trips.find(t => t.id === id)
+      ?? this.past?.trips.find(t => t.id === id)
+      ?? this.data?.trips.find(t => t.id === id);
   }
   private checkById(id: string): AlcoholCheck | undefined {
-    return this.snap!.checks.find(c => c.id === id) ?? this.data?.checks.find(c => c.id === id);
+    return this.snap!.checks.find(c => c.id === id)
+      ?? this.past?.checks.find(c => c.id === id)
+      ?? this.data?.checks.find(c => c.id === id);
   }
 
   private bind() {
@@ -178,7 +247,7 @@ export class AdminApp {
       if (!t) return toast('その運行は見つかりませんでした');
       openTripEditor(t, this.config, {
         save: patch => this.run(() => this.store.editTrip(t.id, patch), '運行を修正しました'),
-        remove: () => this.run(() => removeTripAndAsk(this.store, this.snap!, t), '運行を削除しました'),
+        remove: () => this.run(() => removeTripAndAsk(this.store, this.dayRecords(t), t), '運行を削除しました'),
       });
     });
 
@@ -201,7 +270,8 @@ export class AdminApp {
 
     on('[data-add-alc]', el => {
       const [driver, kind] = (el.dataset.addAlc ?? '').split('|');
-      openAlcoholEditor(null, this.config, this.snap!.today, {
+      // 過去の日を見ているときは、その日に追記する
+      openAlcoholEditor(null, this.config, this.tab === 'board' ? this.viewDate : this.snap!.today, {
         save: rec => this.run(() => this.store.addAlcohol(rec), '記録を追記しました'),
       }, { driver, kind: kind as AlcoholCheck['kind'] });
     });
@@ -220,7 +290,17 @@ export class AdminApp {
       toast('Excel をダウンロードしました');
     });
 
+    on('[data-act=today]', () => { this.day = ''; this.past = null; this.render(); });
+
     const ym = this.root.querySelector<HTMLInputElement>('#ym');
     if (ym) ym.onchange = () => { this.month = ym.value; this.loadMonth(); };
+
+    const day = this.root.querySelector<HTMLInputElement>('#day');
+    if (day) day.onchange = () => {
+      const v = day.value;
+      if (!v || v === this.snap!.today) { this.day = ''; this.past = null; this.render(); return; }
+      this.day = v;
+      this.loadDay(v);
+    };
   }
 }

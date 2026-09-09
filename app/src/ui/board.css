@@ -46,6 +46,7 @@ td.name{white-space:nowrap}
   border-radius:999px;padding:2px 9px}
 .st.run{color:var(--accent);background:var(--accent-soft)}
 .st.idle{color:var(--muted);background:var(--chip)}
+.st.warn{color:var(--danger);background:var(--danger-soft)}
 .tl-label .place{margin-top:3px;line-height:1.45}
 .tl-label .mini{margin-left:6px;vertical-align:middle}
 
@@ -97,8 +98,15 @@ td .none{color:var(--muted);margin-right:6px}
 .rep b{display:block;font-size:14px}
 .rep small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.6}
 .rep .acts{margin-left:auto;display:flex;gap:8px}
-.board-head input[type=month]{font-family:inherit;font-size:13px;padding:5px 8px;
+.board-head input[type=month],.daypick input[type=date]{font-family:inherit;font-size:13px;padding:5px 8px;
   border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+
+/* ---- 日付を選んで過去の運行を見る（管理者だけ） ---- */
+.daypick{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 2px 0}
+.daypick label{font-size:13px;font-weight:900}
+.daypick .hint{color:var(--muted);font-size:12px}
+.daypick .past{color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn-line);
+  border-radius:999px;padding:4px 12px;font-size:12px;font-weight:900}
 td.note{color:var(--muted);font-size:13px}
 
 /* 運転手アプリの .mini は下線つきのリンク風。管理画面ではボタンとして押させたいので上書きする */

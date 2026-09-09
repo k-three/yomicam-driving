@@ -110,8 +110,10 @@ export function buildBoard(
     for (const s of t.stops) {
       push(s.arriveAt, t.vehicle, '学校に到着', s.school);
       if (s.departAt) {
-        const who = s.riders?.length ? s.riders.map(r => r.alias).join('・') : `${s.count}名`;
-        push(s.departAt, t.vehicle, s.count > 0 ? `${who} を乗せて出発` : '乗車なしで出発', s.school, s.count);
+        // 氏名が分かるなら名前で、分からない過去の記録は人数で
+        const who = s.riders?.length
+          ? `${s.riders.map(r => r.alias).join('・')} を乗せて出発` : `${s.count}名 乗せて出発`;
+        push(s.departAt, t.vehicle, s.count > 0 ? who : '乗車なしで出発', s.school, s.count);
       }
     }
     if (t.status === 'done') push(t.returnAt, t.vehicle, '拠点に到着（運行終了）', t.dest, totalCount(t));

@@ -4,18 +4,22 @@
  *  自動では消さない（1日に何回運行してもチェックは1組であり、運転しなかった日でも
  *  実施したなら記録は残る）。ただし、その運転者の本日の運行が1件も無くなる場合は
  *  試し入力の可能性が高いので、まとめて消すかどうかを尋ねる。 */
-import type { Trip } from '../domain/types';
-import type { Snapshot, Store } from '../store/store';
+import type { AlcoholCheck, Trip } from '../domain/types';
+import type { Store } from '../store/store';
 
-export async function removeTripAndAsk(store: Store, snap: Snapshot, t: Trip) {
-  const others = snap.trips.filter(x => x.id !== t.id && x.driver === t.driver);
-  const checks = snap.checks.filter(c => c.driver === t.driver);
+/** day には、消そうとしている運行と同じ日の記録を渡す。当日なら購読中のもの、
+ *  管理画面で過去の日を見ているならその日の読み込み結果 */
+export async function removeTripAndAsk(
+  store: Store, day: { trips: Trip[]; checks: AlcoholCheck[] }, t: Trip,
+) {
+  const others = day.trips.filter(x => x.id !== t.id && x.driver === t.driver);
+  const checks = day.checks.filter(c => c.driver === t.driver);
 
   await store.cancelTrip(t.id);
 
   if (others.length || !checks.length) return;
   const ok = confirm(
-    `${t.driver} さんの本日の運行は、これで1件も無くなります。\n`
+    `${t.driver} さんの ${t.date} の運行は、これで1件も無くなります。\n`
     + `アルコールチェックの記録が ${checks.length}件 残ります。\n\n`
     + `これも削除しますか？\n\n`
     + `・試し入力だった → OK（削除する）\n`

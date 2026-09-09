@@ -60,12 +60,16 @@ export function tripSpans(t: Trip, nowHm: string): Span[] {
   return spans;
 }
 
-/** 表示する時間帯。運行の範囲に現在時刻を含め、前後に少し余白を取る */
+/** 表示する時間帯。運行の範囲に現在時刻を含め、前後に少し余白を取る。
+ *  nowHm が空のとき（過去の日を見ていて現在時刻に意味が無いとき）は、
+ *  その日の記録だけで幅を決める */
 export function timeWindow(trips: Trip[], nowHm: string): { start: number; end: number } {
-  const now = toMin(nowHm) ?? 12 * 60;
+  const now = toMin(nowHm);
   const times = trips.flatMap(t => [toMin(t.departAt), toMin(t.returnAt)]).filter((n): n is number => n !== null);
-  const lo = Math.min(now, ...times.length ? times : [now]);
-  const hi = Math.max(now, ...times.length ? times : [now]);
+  const marks = now === null ? times : [now, ...times];
+  const base = marks.length ? marks : [12 * 60];
+  const lo = Math.min(...base);
+  const hi = Math.max(...base);
   const start = Math.max(0, Math.floor((lo - 20) / 30) * 30);
   const end = Math.min(24 * 60, Math.ceil((hi + 20) / 30) * 30);
   return { start, end: Math.max(end, start + 60) };

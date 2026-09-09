@@ -22,6 +22,13 @@ export const SEED_CONFIG: Config = {
   schools: ['読谷小学校', '渡慶次小学校', '喜名小学校', '古堅小学校', '古堅南小学校', 'よみたん自然学校'],
 };
 
+/** 'YYYY-MM-DD' の前日。月をまたいでも正しく戻る（サンプルの前日ぶんに使う） */
+const dayBefore = (d: string) => {
+  const t = new Date(`${d}T12:00:00Z`);
+  t.setUTCDate(t.getUTCDate() - 1);
+  return t.toISOString().slice(0, 10);
+};
+
 export class MemoryStore implements Store {
   private trips: Trip[] = [];
   private checks: AlcoholCheck[] = [];
@@ -68,7 +75,19 @@ export class MemoryStore implements Store {
       t({ id: 's4', vehicle: 'ハイエース', driver: '運転者J', departAt: '14:05',
           stops: [{ school: '喜名小学校', arriveAt: '14:15', departAt: '', count: 0 }] }),
     ];
+    // 前日ぶん。管理画面で日付を指定して過去を見る動きを確かめるために置く
+    const y = dayBefore(d);
+    this.trips.push(
+      { ...t({ id: 'y1', vehicle: 'ハイエース', driver: '運転者J', departAt: '13:00',
+               returnAt: '13:44', status: 'done', mokushi: true, handover: true,
+               stops: [{ school: '喜名小学校', arriveAt: '13:12', departAt: '13:22', count: 1,
+                         riders: [{ name: '鈴木こあ', alias: 'こあ' }] }] }), date: y },
+    );
     this.checks = [
+      { id: 'y2', date: y, kind: '運転前', driver: '運転者J', vehicle: 'ハイエース', at: '12:50',
+        result: '0.00', inspection: '良', note: '良好', checker: '安全運転管理者', method: '対面' },
+      { id: 'y3', date: y, kind: '運転後', driver: '運転者J', vehicle: 'ハイエース', at: '13:48',
+        result: '0.00', inspection: '', note: '良好', checker: '安全運転管理者', method: '対面' },
       { id: 'c1', date: d, kind: '運転前', driver: '運転者J', vehicle: 'ハイエース', at: '12:55',
         result: '0.00', inspection: '良', note: '良好', checker: '安全運転管理者', method: '対面' },
       { id: 'c2', date: d, kind: '運転後', driver: '運転者J', vehicle: 'ハイエース', at: '13:56',

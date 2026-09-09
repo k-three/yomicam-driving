@@ -10,7 +10,11 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!));
 const clock = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
-export function renderTimeline(lanes: Lane[], nowHm: string, editable = true): string {
+/** live=false は過去の日を見ている状態。現在時刻の線と「いま」の言い回しを出さない */
+export type TimelineView = { editable?: boolean; live?: boolean };
+
+export function renderTimeline(lanes: Lane[], nowHm: string, opts: TimelineView = {}): string {
+  const { editable = true, live = true } = opts;
   const trips = lanes.flatMap(l => l.trips);
   const { start, end } = timeWindow(trips, nowHm);
   const span = end - start;
@@ -24,9 +28,13 @@ export function renderTimeline(lanes: Lane[], nowHm: string, editable = true): s
   const legend = (['onboard', 'wait', 'ferry'] as SpanKind[])
     .map(k => `<span class="lg"><i class="sw ${k}"></i>${SPAN_LABEL[k]}</span>`).join('');
 
+  // 現在時刻の線。過去の日には引かない（その日の「いま」は存在しない）
+  const nowLine = (label = '') => (live
+    ? `<div class="tl-now" style="left:${pct(now)}%">${label}</div>` : '');
+
   if (!lanes.length)
-    return `<section class="timeline"><h2>いまの動き</h2>
-      <p class="empty-tl">本日の運行はまだありません。</p></section>`;
+    return `<section class="timeline"><h2>${live ? 'いまの動き' : 'その日の動き'}</h2>
+      <p class="empty-tl">${live ? '本日の運行はまだありません。' : 'この日の運行の記録はありません。'}</p></section>`;
 
   const body = lanes.map(lane => {
     const { worries } = lane;
@@ -38,12 +46,16 @@ export function renderTimeline(lanes: Lane[], nowHm: string, editable = true): s
       return `<div class="sp ${s.kind}${s.live ? ' live' : ''}" style="left:${pct(a)}%;width:calc(${w}% - 2px)"
         data-tip="${esc(s.detail)}"><span>${text}</span></div>`;
     }).join('');
-    const alert = worries.length > 0;
+    // 過去の日に「運行中」のまま残っている＝終了の記録漏れ。見つけやすいよう警告扱いにする
+    const unfinished = !live && lane.running;
+    const alert = worries.length > 0 || unfinished;
     // 「いま動いている車両」の表と同じ内容を、この行に寄せてある（表は廃止）
-    const state = lane.running
+    const state = unfinished
+      ? `<em class="st warn">⚠ 運行終了が記録されていません</em>`
+      : lane.running
       ? `<em class="st run">🚐 運行中 ${esc(hm(lane.elapsedMin))}${
           lane.riders ? `・${esc(lane.riders)}` : lane.onboard ? `・乗車${lane.onboard}人` : ''}</em>`
-      : `<em class="st idle">✓ ${esc(lane.trips.length)}回 運行・待機中</em>`;
+      : `<em class="st idle">✓ ${esc(lane.trips.length)}回 運行${live ? '・待機中' : ''}</em>`;
     // 運行中の記録は完了運行の表に出ないので、直す導線をここに置く
     const open = editable ? lane.trips.find(t => t.status === 'running') : undefined;
     const fix = open
@@ -56,15 +68,15 @@ export function renderTimeline(lanes: Lane[], nowHm: string, editable = true): s
         <small class="place">${esc(lane.place)}</small>
         ${alert ? `<em class="tl-warn">⚠ ${esc(worries.join(' ／ '))}</em>` : ''}
       </div>
-      <div class="tl-track">${spans}<div class="tl-now" style="left:${pct(now)}%"></div></div>
+      <div class="tl-track">${spans}${nowLine()}</div>
     </div>`;
   }).join('');
 
   return `<section class="timeline">
-    <h2>いまの動き（車両ごと・${esc(nowHm)}現在）<span class="legend">${legend}</span></h2>
+    <h2>${live ? `いまの動き（車両ごと・${esc(nowHm)}現在）` : 'その日の動き（車両ごと）'}<span class="legend">${legend}</span></h2>
     <div class="tl">
       <div class="tl-row tl-axis"><div class="tl-label"></div><div class="tl-track">${ticks.join('')}
-        <div class="tl-now" style="left:${pct(now)}%"><span>現在 ${esc(nowHm)}</span></div></div></div>
+        ${nowLine(`<span>現在 ${esc(nowHm)}</span>`)}</div></div>
       ${body}
     </div>
     <p class="tl-note">帯の区切りは、保険会社へ提出する輸送記録の区間と同じ考え方です。帯にカーソルを合わせると詳細が出ます。</p>

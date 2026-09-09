@@ -212,3 +212,54 @@ test('添付された写真を管理画面で開ける', async ({ page }) => {
   // 追記した記録には写真が無いので、印は出ない
   await expect(page.getByRole('button', { name: '📷' })).toHaveCount(0);
 });
+
+test('日付を指定して過去の運行を見られる', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+  const day = page.locator('#day');
+  const today = await day.inputValue();
+  // 未来は選べない（記録は過去にしか無い）
+  await expect(day).toHaveAttribute('max', today);
+  await expect(page.getByTestId('past-day')).toBeHidden();
+
+  const prev = new Date(`${today}T12:00:00Z`);
+  prev.setUTCDate(prev.getUTCDate() - 1);
+  const y = prev.toISOString().slice(0, 10);
+
+  await day.fill(y);
+  await day.dispatchEvent('change');
+
+  // 過去の日を見ていることが分かり、その日の記録が出る
+  await expect(page.getByTestId('past-day')).toBeVisible();
+  await expect(page.getByTestId('board-when')).toHaveText(y);
+  await expect(page.getByRole('heading', { name: /その日の動き/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^この日の完了運行/ })).toBeVisible();
+  await expect(page.getByTestId('done-row')).toHaveCount(1);
+  await expect(page.getByTestId('done-row')).toContainText('こあ');
+  await expect(page.getByTestId('alerts')).toHaveText('✓ 異常なし');
+  // 現在時刻の線は引かない（その日の「いま」は存在しない）
+  await expect(page.locator('.tl-now')).toHaveCount(0);
+  await page.screenshot({ path: 'tests/shot-admin-past.png', fullPage: true });
+
+  // 今日に戻せる
+  await page.getByRole('button', { name: '今日に戻る' }).click();
+  await expect(page.getByTestId('past-day')).toBeHidden();
+  await expect(page.getByRole('heading', { name: /いまの動き/ })).toBeVisible();
+  await expect(page.getByTestId('done-row')).toHaveCount(1);
+});
+
+test('過去の日の記録も管理者は直せる', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+  const day = page.locator('#day');
+  const prev = new Date(`${await day.inputValue()}T12:00:00Z`);
+  prev.setUTCDate(prev.getUTCDate() - 1);
+  await day.fill(prev.toISOString().slice(0, 10));
+  await day.dispatchEvent('change');
+
+  await page.getByTestId('done-row').getByRole('button', { name: '修正' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('拠点到着時刻').fill('13:50');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+
+  // 直した結果が、その日の表に反映される（過去の日は購読していないので読み直している）
+  await expect(page.getByTestId('done-row')).toContainText('13:50');
+});

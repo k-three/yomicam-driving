@@ -129,8 +129,8 @@ export class App {
       alerts: board.running.filter(r => r.worries.length).length + mine.filter(a => a.ng).length };
 
     this.root.innerHTML = this.header()
-      + renderTimeline(view.lanes, now, false)
-      + renderBoard(view, this.snap.today, now, false)
+      + renderTimeline(view.lanes, now, { editable: false })
+      + renderBoard(view, this.snap.today, now, { editable: false })
       + `<p class="note" style="text-align:center">見るだけの画面です。
           アルコールチェックは自分のぶんだけ表示しています。<br>
           記録の修正は「記録」から行えます。</p>`
