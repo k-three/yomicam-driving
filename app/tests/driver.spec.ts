@@ -351,3 +351,38 @@ test('児童を登録すると、人数ではなく名前で選べる', async ({
   await page.getByTestId('finish').click();
   await expect(page.getByText('渡慶次小学校 そら・りおん')).toBeVisible();
 });
+
+test('どの画面でも、いまの段階と次にやることが分かる', async ({ page }) => {
+  await unlock(page);
+  const now = async (label: string) => {
+    // 「▶」が付いているのが、いまやる段階
+    await expect(page.locator('.today .s.now')).toHaveText(new RegExp(`▶\\s*${label}`));
+    await expect(page.locator('.today .k')).toHaveText('次にやること');
+  };
+
+  await now('1. 運転前チェック');
+  await page.getByTestId('alc-record-運転前').click();
+  await now('2. 出発');
+
+  await page.getByTestId('depart').click();
+  await now('3. 学校で乗車');                       // 学校へ向かっている
+  await expect(page.getByTestId('enroute')).toContainText('学校に着いたら');
+
+  await page.getByRole('button', { name: /渡慶次小学校/ }).click();
+  await now('3. 学校で乗車');                       // 学校に着いた
+  await page.getByRole('button', { name: '2', exact: true }).click();
+  await page.getByTestId('board').click();
+  await now('4. 拠点に到着');                       // 乗せて拠点へ戻る
+
+  await page.getByTestId('return').click();
+  await now('4. 拠点に到着');
+  await page.getByTestId('finish').click();
+  await now('5. 運転後チェック');                   // ここが抜けやすいので、必ず出す
+  await expect(page.getByTestId('today')).toContainText('運転後のアルコールチェックを記録');
+
+  await page.getByTestId('alc-record-運転後-main').click();
+  // 全部おわると、いまやる段階は無くなる
+  await expect(page.locator('.today .s.now')).toHaveCount(0);
+  await expect(page.locator('.today .s.done')).toHaveCount(5);
+  await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
+});

@@ -99,8 +99,10 @@ button{font-family:inherit;cursor:pointer}
 /* 1日の流れのどこにいるかを、画面の先頭で1行にして出す。
    「記録できたのか分からない」「同じ画面に見える」を防ぐのが目的。 */
 .today{border-radius:14px;padding:13px 16px;margin-bottom:12px;line-height:1.6}
-.today b{display:block;font-size:16px;font-weight:900}
-.today span{display:block;font-size:12.5px;margin-top:3px;opacity:.85}
+/* 直下の b だけが「いまの状態」。文中の b は強調なので行を割らない */
+.today > b{display:block;font-size:16px;font-weight:900}
+.today > span{display:block;font-size:12.5px;margin-top:3px;opacity:.85}
+.today > span b{font-weight:900}
 .today[data-step="before"]{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
 .today[data-step="ready"]{background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent)}
 /* 運行後・運転後チェック前。法定の記録が残っている状態なので注意の色にする */
@@ -110,6 +112,22 @@ button{font-family:inherit;cursor:pointer}
 .today[data-step="orphan"],
 /* 検知器に数値が出ている。運行させてはいけない状態 */
 .today[data-step="detected"]{background:var(--danger-soft);border:1px solid var(--danger);color:var(--danger)}
+/* 運行中の各段階。進行中なので出発できる状態と同じ色にする */
+.today[data-step="toSchool"],.today[data-step="atSchool"],
+.today[data-step="toBase"],.today[data-step="arrived"]{
+  background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent)}
+/* 運転者・車両を選ぶ前。急かす必要はないので落ち着いた色 */
+.today[data-step="setup"]{background:var(--chip);border:1px solid var(--line);color:var(--ink)}
+
+/* 1日の流れの中で、いまどこにいるか。色だけに頼らず ✓ と ▶ と番号で示す */
+.today .steps{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 9px;padding:0}
+.today .steps .s{display:inline-block;font-size:11px;font-weight:700;line-height:1.5;
+  padding:2px 8px;border-radius:999px;border:1px solid currentColor;opacity:.4;white-space:nowrap}
+.today .steps .s.done{opacity:.65}
+.today .steps .s.now{opacity:1;font-weight:900;background:rgba(255,255,255,.6)}
+/* 「次にやること」の見出し。本文と同じ行に置く */
+.today .k{font-style:normal;font-weight:900;margin-right:6px;padding:1px 7px;border-radius:999px;
+  border:1px solid currentColor;font-size:11px;white-space:nowrap}
 /* 「0.00 以外・別の方法で記録」。ふだんは使わないので控えめに置く */
 .row.sub{justify-content:flex-end;padding-top:0;border-top:none;margin-top:-6px}
 .big.secondary.danger{color:var(--danger);border-color:var(--danger)}

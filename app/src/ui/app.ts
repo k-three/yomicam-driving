@@ -159,10 +159,35 @@ export class App {
       </nav>`;
   }
 
+  /** 1日の流れ。どの画面でも同じ並びで出し、いまどこにいるかを示す。
+   *  「自分がどういう状態なのか、次に何をすればよいか分かりにくい」という声への対応で、
+   *  操作そのものは変えていない（読むための文字を足しただけ）。 */
+  private static STEPS = ['運転前チェック', '出発', '学校で乗車', '拠点に到着', '運転後チェック'];
+
+  /** now は「いまやる段階」の番号（1〜5）。0 は準備中、6 は本日ぶんが終わった状態 */
+  private stepLine(now: number) {
+    return `<p class="steps">${App.STEPS.map((label, i) => {
+      const n = i + 1;
+      const cls = n < now ? 's done' : n === now ? 's now' : 's';
+      const mark = n < now ? '✓ ' : n === now ? '▶ ' : '';
+      return `<span class="${cls}">${mark}${n}. ${label}</span>`;
+    }).join('')}</p>`;
+  }
+
+  /** 画面の先頭に置く案内。いまの状態と、次にやること1つだけを書く */
+  private guide(step: string, now: number, state: string, next: string, testid = 'today') {
+    return `<div class="today" data-testid="${testid}" data-step="${step}">
+      ${this.stepLine(now)}
+      <b>${state}</b>
+      <span><i class="k">次にやること</i>${next}</span></div>`;
+  }
+
   private viewSetup() {
-    return `<div class="card"><h2>はじめに</h2><p style="margin:0;font-weight:700">
+    return this.guide('setup', 0, 'まだ始めていません（運転者と車両が未選択）',
+      '画面の上にある「運転者」と「車両」をタップして選んでください')
+      + `<div class="card"><h2>はじめに</h2><p style="margin:0;font-weight:700">
       上の「運転者」「車両」をタップして選んでください。<br>
-      <span class="note">次回からは自動で表示されます。</span></p></div>`;
+      <span class="note">次回からは自動で表示されます。次は「運転前のアルコールチェック」に進みます。</span></p></div>`;
   }
 
   /** アルコールチェック1行ぶん。記録済みなら時刻を残し、取消もできる */
@@ -214,26 +239,28 @@ export class App {
       : (!post || postStale) ? (done ? 'driving' : 'ready')
       : 'finished';
 
-    let h = `<div class="today" data-testid="today" data-step="${step}">
-      <b>${{
-        before: '① 運転前のアルコールチェックから',
-        ready: '② 出発できます',
-        driving: `② 本日 ${done}回 運行しました${lastBack ? `（最後に拠点へ戻ったのは ${esc(lastBack)}）` : ''}`,
-        finished: '✅ 本日の運転は終了しました',
-        orphan: '⚠ 本日の運行がありません',
-        detected: `⚠ アルコールが検出されています（${esc(pre?.result ?? '')}）`,
-      }[step]}</b>
-      <span>${{
-        before: '検知器で測ってから記録してください',
-        ready: '運転を終えるときに、運転後のチェックを記録します',
-        driving: postStale
-          ? 'その後もう1度運転しているので、<b>運転後のチェックを記録し直してください</b>（最後の記録が採用されます）'
-          : '運転を終えるときは、<b>必ず運転後のアルコールチェックを記録</b>してください（法定の記録です）',
-        finished: `運転後 ${esc(post?.at ?? '')} に記録済み。おつかれさまでした`,
-        orphan: 'アルコールチェックの記録だけが残っています。試し入力なら下から削除してください',
-        detected: '<b>この状態で運転してはいけません。</b>運行管理担当に連絡してください。'
-          + '入力を間違えた場合は、下の「取消」からやり直せます',
-      }[step]}</span></div>`;
+    // いまやる段階。運転後を記録し終えていれば 6（本日ぶん完了）
+    const nowStep = { before: 1, detected: 1, orphan: 1, ready: 2, driving: 5, finished: 6 }[step];
+    let h = this.guide(step, nowStep, {
+      before: '運転前のアルコールチェックから始めます',
+      ready: '🚐 出発できます',
+      driving: `本日 ${done}回 運行しました${lastBack ? `（最後に拠点へ戻ったのは ${esc(lastBack)}）` : ''}`,
+      finished: '✅ 本日の運転は終了しました',
+      orphan: '⚠ 本日の運行がありません',
+      detected: `⚠ アルコールが検出されています（${esc(pre?.result ?? '')}）`,
+    }[step], {
+      before: '検知器で測り、下の「✓ 0.00 で記録」をタップしてください',
+      ready: '下の「🚐 出発する」をタップ。運転を終えるときに、運転後のチェックを記録します',
+      driving: postStale
+        ? 'その後もう1度運転しているので、<b>運転後のチェックを記録し直してください</b>（最後の記録が採用されます）'
+        : '下の「🏁 本日の運転を終える」で<b>運転後のアルコールチェックを記録</b>（法定の記録です）。'
+          + 'まだ運転する場合は「もう1度 出発する」',
+      finished: `運転後 ${esc(post?.at ?? '')} に記録済み。操作はありません。`
+        + 'また運転するときは「もう1度 出発する」をタップ。おつかれさまでした',
+      orphan: 'アルコールチェックの記録だけが残っています。試し入力なら下から削除してください',
+      detected: '<b>この状態で運転してはいけません。</b>運行管理担当に連絡してください。'
+        + '入力を間違えた場合は、下の「取消」からやり直せます',
+    }[step]);
 
     h += `<div class="card"><h2>アルコールチェック（1日の最初と最後の2回）</h2>
       ${this.alcoholRow('運転前', false)}${this.alcoholRow('運転後', !pre)}
@@ -290,8 +317,15 @@ export class App {
   private viewEnroute(t: Trip) {
     const boarded = totalCount(t);
     const visited = new Map(t.stops.filter(s => s.departAt).map(s => [s.school, `${s.arriveAt}→${s.departAt}`]));
-    let h = `<div class="banner go" data-testid="enroute">🚐 運行中${boarded ? `　乗車 ${boarded}人` : ''}
-      <span class="t">${esc(t.base)} ${esc(t.departAt)}発</span></div>`;
+    const last = t.stops[t.stops.length - 1];
+    // まだどこにも寄っていなければ学校へ向かう段階、寄ったあとなら拠点へ戻る段階
+    let h = last
+      ? this.guide('toBase', 4,
+          `🚐 運行中${boarded ? `　乗車 ${boarded}人` : '　乗車なし'}　${esc(last.school)} を ${esc(last.departAt)} に出発し、拠点へ向かっています`,
+          '拠点に着いたら「🏠 拠点に到着した」をタップ。ほかの学校に寄る場合は、下の学校名をタップ', 'enroute')
+      : this.guide('toSchool', 3,
+          `🚐 運行中　${esc(t.base)} を ${esc(t.departAt)} に出発し、学校へ向かっています`,
+          '学校に着いたら、下の学校名をタップしてください', 'enroute');
     if (t.stops.length) h += `<button class="big" data-testid="return">🏠 拠点に到着した</button>
       <p class="note" style="text-align:center">別の学校に立ち寄る場合は下から選択</p>`;
     else h += `<p class="note" style="font-weight:700;color:var(--ink)">学校に着いたらタップ</p>`;
@@ -315,7 +349,11 @@ export class App {
   private viewAtSchool(t: Trip) {
     const stop = this.openStop(t)!;
     const kids = this.childrenAt(stop.school);
-    let h = `<div class="banner go" data-testid="at-school">📍 ${esc(stop.school)}<span class="t">到着 ${esc(stop.arriveAt)}</span></div>`;
+    let h = this.guide('atSchool', 3,
+      `📍 ${esc(stop.school)} に ${esc(stop.arriveAt)} 到着（まだ出発していません）`,
+      kids.length
+        ? '乗せた児童をタップして選び、「乗せて出発」をタップ。誰も乗らないときは「この学校では乗車なし」'
+        : '乗せた人数をタップして、「乗せて出発」をタップしてください', 'at-school');
 
     if (kids.length) {
       // 誰が乗ったかを名前で選ぶ。人数は選んだ数から決まる
@@ -344,7 +382,9 @@ export class App {
   }
 
   private viewReturn(t: Trip) {
-    return `<div class="card"><h2>拠点に到着</h2>
+    return this.guide('arrived', 4, '🏠 拠点に到着しました（まだ記録していません）',
+      '目視確認と引き渡しを確かめて「記録して終了」をタップ。そのあとに<b>運転後のアルコールチェック</b>が残っています')
+      + `<div class="card"><h2>拠点に到着</h2>
       <p style="margin:0 0 12px;font-weight:700">${esc(t.vehicle)}・${esc(t.driver)}・乗車 ${totalCount(t)}人</p>
       <button class="toggle on" data-testid="mokushi"><span class="box">✓</span>
         <span>車内の目視確認をした<small>置き去り防止。していない場合はタップして外す</small></span></button>
