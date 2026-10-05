@@ -263,3 +263,44 @@ test('過去の日の記録も管理者は直せる', async ({ page }) => {
   // 直した結果が、その日の表に反映される（過去の日は購読していないので読み直している）
   await expect(page.getByTestId('done-row')).toContainText('13:50');
 });
+
+test('車両と自動車登録番号を追加できる', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+  await page.getByRole('button', { name: '設定', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+
+  const rows = dialog.locator('tr[data-veh]');
+  const before = await rows.count();
+  await dialog.getByRole('button', { name: '＋ 車両を追加' }).click();
+  await expect(rows).toHaveCount(before + 1);
+
+  const added = rows.last();
+  await added.locator('input[name^=v-name-]').fill('シエンタ');
+  await added.locator('input[name^=v-regno-]').fill('沖縄500あ12-34');
+  await page.screenshot({ path: 'tests/shot-config.png', fullPage: true });
+  await dialog.getByRole('button', { name: '保存する' }).click();
+  await expect(dialog).toBeHidden();
+
+  // 保存されていれば、記録を直す画面の車両一覧に出る
+  await page.getByTestId('tl-row').first().getByRole('button', { name: '修正' }).click();
+  const fix = page.getByRole('dialog');
+  await fix.locator('summary', { hasText: '運転者・車両・場所' }).click();
+  await expect(fix.getByLabel('車両')).toContainText('シエンタ');
+  await fix.getByRole('button', { name: 'キャンセル' }).click();
+
+  // 登録番号も残っている
+  await page.getByRole('button', { name: '設定', exact: true }).click();
+  await expect(page.getByRole('dialog').locator('tr[data-veh]').last()
+    .locator('input[name^=v-regno-]')).toHaveValue('沖縄500あ12-34');
+});
+
+test('同じ名前の車両は登録できない', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+  await page.getByRole('button', { name: '設定', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: '＋ 車両を追加' }).click();
+  await dialog.locator('tr[data-veh]').last().locator('input[name^=v-name-]').fill('ハイエース');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+  await expect(dialog.locator('[data-err]')).toContainText('同じ名前の車両');
+  await expect(dialog).toBeVisible();
+});

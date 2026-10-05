@@ -2,7 +2,7 @@
  *  運行中の記録も確定済みの記録も同じ形（Trip）なので、同じ画面で直せる。
  *  Apps Script 版では運行中の状態が別シートの状態JSONだったため手で直せず、
  *  「おかしいと分かっても直せない」状態が起きていた。ここではそれが起きない。 */
-import type { AlcoholCheck, Child, Config, Stop, Trip } from '../domain/types';
+import type { AlcoholCheck, Child, Config, Stop, Trip, Vehicle } from '../domain/types';
 import { shrink } from './photo';
 import type { TripPatch } from '../store/store';
 
@@ -208,6 +208,11 @@ export function openAlcoholEditor(
 
 export function openConfigEditor(config: Config, handlers: { save: (c: Config) => void }) {
   const lines = (v: string[]) => esc(v.join('\n'));
+  const vehRow = (v: Vehicle, i: number) => `<tr data-veh="${i}">
+    <td><input name="v-name-${i}" value="${esc(v.name)}" placeholder="ハイエース"></td>
+    <td><input name="v-regno-${i}" value="${esc(v.regno)}" placeholder="沖縄500あ00-00"></td>
+    <td><input name="v-active-${i}" type="checkbox"${v.active ? ' checked' : ''}></td>
+    <td><button type="button" class="mini danger" data-del-veh="${i}">削除</button></td></tr>`;
   const kidRow = (c: Child, i: number) => `<tr data-kid="${i}">
     <td><input name="k-name-${i}" value="${esc(c.name)}" placeholder="山田太郎"></td>
     <td><input name="k-alias-${i}" value="${esc(c.alias)}" placeholder="たろう"></td>
@@ -233,13 +238,13 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     <button type="button" class="mini" data-add-kid>＋ 児童を追加</button>
 
     <p class="sub">車両と自動車登録番号</p>
-    <p class="note">登録番号が空だと、保険会社向けの輸送記録に車両の呼び名がそのまま出ます。</p>
-    <table class="stops"><thead><tr><th>車両</th><th>自動車登録番号</th><th>使用</th></tr></thead>
-      <tbody>${config.vehicles.map((v, i) => `<tr>
-        <td><input name="v-name-${i}" value="${esc(v.name)}"></td>
-        <td><input name="v-regno-${i}" value="${esc(v.regno)}" placeholder="沖縄500あ00-00"></td>
-        <td><input name="v-active-${i}" type="checkbox"${v.active ? ' checked' : ''}></td>
-      </tr>`).join('')}</tbody></table>`);
+    <p class="note">登録番号が空だと、保険会社向けの輸送記録に車両の呼び名がそのまま出ます。<br>
+      使わなくなった車両は<b>「使用」のチェックを外す</b>と、運転手の選択肢から消えます
+      （過去の記録はそのまま残ります）。「削除」は入力を間違えたときに使ってください。</p>
+    <table class="stops"><thead><tr>
+      <th>車両</th><th>自動車登録番号</th><th>使用</th><th></th></tr></thead>
+      <tbody data-vehs>${config.vehicles.map(vehRow).join('')}</tbody></table>
+    <button type="button" class="mini" data-add-veh>＋ 車両を追加</button>`);
 
   const kids = d.querySelector<HTMLElement>('[data-kids]')!;
   let k = config.children.length;
@@ -250,6 +255,18 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     kids.insertAdjacentHTML('beforeend',
       kidRow({ name: '', alias: '', school: config.schools[0] ?? '', grade: '', active: true }, k++));
     bindKidDel();
+  });
+
+  const vehs = d.querySelector<HTMLElement>('[data-vehs]')!;
+  let v = config.vehicles.length;
+  const bindVehDel = () => vehs.querySelectorAll<HTMLElement>('[data-del-veh]').forEach(b =>
+    b.onclick = () => b.closest('tr')!.remove());
+  bindVehDel();
+  d.querySelector('[data-add-veh]')!.addEventListener('click', () => {
+    vehs.insertAdjacentHTML('beforeend', vehRow({ name: '', regno: '', active: true }, v++));
+    bindVehDel();
+    // 足した行にすぐ入力できるようにする（スマホで探させない）
+    vehs.querySelector<HTMLInputElement>('tr:last-child input')?.focus();
   });
 
   const list = (name: string) => val(d, name).split('\n').map(s => s.trim()).filter(Boolean);
@@ -268,9 +285,17 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     const drivers = list('drivers'), schools = list('schools');
     if (!drivers.length) return '運転者を1人以上入れてください。';
     if (!schools.length) return '学校を1つ以上入れてください。';
-    const vehicles = config.vehicles.map((_, i) => ({
-      name: val(d, `v-name-${i}`), regno: val(d, `v-regno-${i}`), active: checked(d, `v-active-${i}`),
-    })).filter(v => v.name);
+    const vehicles: Vehicle[] = [];
+    for (const tr of vehs.querySelectorAll<HTMLElement>('[data-veh]')) {
+      const i = tr.dataset.veh!;
+      const name = val(tr, `v-name-${i}`);
+      if (!name) continue;                       // 空の行は無視する
+      vehicles.push({ name, regno: val(tr, `v-regno-${i}`), active: checked(tr, `v-active-${i}`) });
+    }
+    if (!vehicles.length) return '車両を1台以上入れてください。';
+    // 同じ名前が2つあると、運行状況が車両ごとにまとまらなくなる
+    if (new Set(vehicles.map(x => x.name)).size !== vehicles.length)
+      return '同じ名前の車両が2つ以上あります。名前を分けてください。';
     handlers.save({ drivers, schools, bases: list('bases'), inspectors: list('inspectors'),
                     vehicles, children });
     return null;
