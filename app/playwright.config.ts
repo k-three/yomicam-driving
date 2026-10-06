@@ -19,6 +19,8 @@ export default defineConfig({
     // 運転手はスマホ、管理者はPC。それぞれ実際に使う画面幅で確かめる
     { name: 'driver', testMatch: /driver\.spec\.ts/, use: { ...devices['Pixel 7'] } },
     { name: 'admin', testMatch: /admin\.spec\.ts/, use: { viewport: { width: 1280, height: 900 } } },
+    // 虎の巻から出す緊急。メンバーはスマホで見ることが多い
+    { name: 'toranomaki', testMatch: /toranomaki\.spec\.ts/, use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
     command: 'npx vite --port 5173 --host 127.0.0.1',

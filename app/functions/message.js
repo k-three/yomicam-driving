@@ -20,7 +20,7 @@ const minutes = (ms) => {
 /** 種別ごとの「対象の児童」の言い方。アプリの INCIDENT_KINDS と合わせる */
 const KIDS_LABEL = {
   '所在不明': '来ていない・所在不明', 'ケガ': 'ケガをした児童', '体調不良': '具合が悪い児童',
-  '交通事故': '乗っていた児童', 'その他': '対象の児童',
+  '交通事故': '関係する児童', 'その他': '対象の児童',
 };
 const kidsLabel = (kind) => KIDS_LABEL[kind] ?? '来ていない・所在不明';
 
@@ -30,7 +30,8 @@ export function raiseText(inc, nowMs = Date.now()) {
   const lines = [
     `<!channel> 🚨 *緊急${inc.kind ? `：${e(inc.kind)}` : '対応中'}*（${e(inc.startedAt)}〜）`,
     `場所：${e(inc.place) || '（未入力）'}`,
-    `${e(inc.driver) || '（不明）'}${inc.vehicle ? `／車両：${e(inc.vehicle)}` : ''}`,
+    `発信：${e(inc.driver) || '（不明）'}${inc.vehicle ? `／車両：${e(inc.vehicle)}` : ''}${
+      inc.via === '虎の巻' ? '（虎の巻から）' : ''}`,
   ];
   if (Array.isArray(inc.riders) && inc.riders.length)
     lines.push(`${kidsLabel(inc.kind)}：*${inc.riders.map(e).join('・')}*`);

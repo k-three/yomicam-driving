@@ -103,9 +103,24 @@ export type EmergencyOpts = {
   place: string;
   /** 対象の児童の候補。乗せている児童と、いる学校の児童。分からなければ全員 */
   kids: Child[];
+  /** どこから出したか（Slack と記録に残す） */
+  via: string;
+  /** 誰が押したかをアプリが知らないとき（虎の巻）に、名前を聞く。前回の名前と候補 */
+  askWho?: { initial: string; suggestions: string[] };
+  /** 「どこで」の選択肢の順番。省略すると 学校 → 拠点 の順（送迎中は学校が多いため） */
+  placeChoices?: string[];
+  /** ダイアログを置く場所。虎の巻ではページの CSS と混ざらないよう Shadow DOM の中に置く */
+  host?: Node;
   raise: (input: IncidentInput) => void;
-  close: (id: string, outcome: 'resolved' | 'cancelled', note: string) => void;
+  /** by は閉じた人。askWho のときは入力された名前、そうでなければ who */
+  close: (id: string, outcome: 'resolved' | 'cancelled', note: string, by: string) => void;
 };
+
+const whoField = (w: { initial: string; suggestions: string[] }) => `
+    <label class="fld"><span>あなたの名前</span>
+      <input name="who" list="sos-who" value="${esc(w.initial)}" placeholder="例：はあと" autocomplete="off"
+        data-testid="who"></label>
+    <datalist id="sos-who">${w.suggestions.map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
 
 export function openEmergency(o: EmergencyOpts) {
   const d = document.createElement('dialog');
@@ -121,6 +136,7 @@ export function openEmergency(o: EmergencyOpts) {
     ${dialButtons(kindOf(inc.kind)?.dial ?? [])}
     ${phoneSection(o.config)}
     <p class="sub">✅ 終わったら</p>
+    ${o.askWho ? whoField(o.askWho) : ''}
     <label class="fld"><span>解決の内容（任意）</span>
       <input name="closeNote" placeholder="例：保護者が先に迎えに来ていた" autocomplete="off"></label>
     <button type="button" class="big" data-act="resolve" data-testid="resolve">✅ 解決した（全員の帯を消す）</button>
@@ -137,8 +153,9 @@ export function openEmergency(o: EmergencyOpts) {
     <p class="sub">🚨 全員の画面に「緊急対応中」を出す</p>
     <p class="note">送迎記録と虎の巻の、すべての画面の先頭に赤い帯が出ます。
       <b>迷ったら出してください。</b>取り消しは簡単で、取り消したことも記録に残るだけです。</p>
+    ${o.askWho ? whoField(o.askWho) : ''}
     ${o.place ? '' : `<label class="fld"><span>どこで</span><select name="place">${
-        [...o.config.schools, ...o.config.bases].map(p => `<option>${esc(p)}</option>`).join('')}</select></label>`}
+        (o.placeChoices ?? [...o.config.schools, ...o.config.bases]).map(p => `<option>${esc(p)}</option>`).join('')}</select></label>`}
     ${o.kids.length ? `<p class="note" style="margin-bottom:4px"><span data-kids-label>対象の児童</span>（任意）</p>
       <div class="kids">${o.kids.map(c => `<button type="button" class="kid" data-kid="${esc(c.alias)}">
         <b>${esc(c.alias)}</b><small>${esc(c.grade)}</small></button>`).join('')}</div>` : ''}
@@ -148,13 +165,15 @@ export function openEmergency(o: EmergencyOpts) {
     <button type="button" class="link" data-act="close">閉じる</button>`;
 
   d.innerHTML = `<form method="dialog"><div class="fields">${body}</div></form>`;
-  document.body.appendChild(d);
+  (o.host ?? document.body).appendChild(d);
   d.addEventListener('close', () => d.remove());
   d.showModal();
   d.querySelector<HTMLElement>('h2')!.focus();
 
   const q = <T extends HTMLElement>(sel: string) => d.querySelector<T>(sel);
   const val = (name: string) => q<HTMLInputElement | HTMLSelectElement>(`[name="${name}"]`)?.value.trim() ?? '';
+  // 名前を聞く画面なら入力された名前。空なら、どこから出したかだけは分かるようにする
+  const who = () => (o.askWho ? val('who') || `${o.via}（名前未入力）` : o.who);
 
   // 連絡先を切り替えたら、発信ボタンの宛先も変える
   const sel = q<HTMLSelectElement>('[name=contact]'), call = q<HTMLAnchorElement>('[data-testid=call]');
@@ -189,19 +208,19 @@ export function openEmergency(o: EmergencyOpts) {
   q('[data-act=raise]')?.addEventListener('click', () => {
     if (!kind) return;
     if (!confirm(`全員の画面に「緊急対応中：${kind}」を表示します。よろしいですか？`)) return;
-    o.raise({ kind, driver: o.who, vehicle: o.vehicle, place: o.place || val('place'),
+    o.raise({ kind, via: o.via, driver: who(), vehicle: o.vehicle, place: o.place || val('place'),
               riders: [...picked], note: val('note') });
     d.close();
   });
   q('[data-act=resolve]')?.addEventListener('click', () => {
     if (!inc) return;
-    o.close(inc.id, 'resolved', val('closeNote'));
+    o.close(inc.id, 'resolved', val('closeNote'), who());
     d.close();
   });
   q('[data-act=cancel-incident]')?.addEventListener('click', () => {
     if (!inc) return;
     if (!confirm('誤報として取り消します。取り消したことも記録に残ります。よろしいですか？')) return;
-    o.close(inc.id, 'cancelled', val('closeNote'));
+    o.close(inc.id, 'cancelled', val('closeNote'), who());
     d.close();
   });
 }

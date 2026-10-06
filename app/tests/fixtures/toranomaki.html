@@ -1,0 +1,17 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>虎の巻（試験用のページ）</title>
+<style>
+/* 虎の巻の代わりのページ。緊急の画面を壊しそうな指定を、わざと入れてある。
+   緊急の画面はページの CSS から切り離されている（Shadow DOM）ので、これが効いてはいけない */
+button{all:unset;color:hotpink;font-size:30px}
+.big{display:none!important}
+.note,.sub,.fld{font-size:40px;color:hotpink}
+dialog{display:none!important}
+:root{--danger:hotpink;--ink:hotpink}
+</style></head><body>
+<header><h1>よみキャン運営虎の巻（試験用）</h1>
+  <button data-yomicam-sos data-testid="tora-sos">🚨 緊急</button></header>
+<p>本文</p>
+<script src="/alert.js" defer></script>
+</body></html>

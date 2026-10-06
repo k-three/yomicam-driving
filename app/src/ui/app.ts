@@ -181,10 +181,10 @@ export class App {
     if (!kids.length) kids.push(...this.config.children.filter(c => c.active));
     openEmergency({
       incident: this.snap?.incident ?? null, config: this.config,
-      who: this.driver || '運転者', vehicle: this.vehicle, place, kids,
+      who: this.driver || '運転者', vehicle: this.vehicle, place, kids, via: '送迎記録',
       raise: input => this.run(() => this.store.raiseIncident(input), '全員の画面に「緊急対応中」を出しました'),
-      close: (id, outcome, note) => this.run(
-        () => this.store.closeIncident(id, outcome, { by: this.driver || '運転者', note }),
+      close: (id, outcome, note, by) => this.run(
+        () => this.store.closeIncident(id, outcome, { by, note }),
         outcome === 'resolved' ? '解決を記録しました。おつかれさまでした' : '取り消しました'),
     });
   }

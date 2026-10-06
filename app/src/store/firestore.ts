@@ -89,6 +89,7 @@ function toIncident(id: string, d: Doc, pending = false): Incident {
     startedAt: String(d.startedAt ?? ''),
     startedMs: Number(d.startedMs ?? 0),
     kind: String(d.kind ?? ''),
+    via: String(d.via ?? ''),
     driver: String(d.driver ?? ''),
     vehicle: String(d.vehicle ?? ''),
     place: String(d.place ?? ''),

@@ -12,7 +12,8 @@ describe('Slack の一報', () => {
     const t = raiseText(inc, inc.startedMs + 5_000);
     expect(t.startsWith('<!channel> 🚨 *緊急対応中*（14:32〜）')).toBe(true);
     expect(t).toContain('場所：渡慶次小学校');
-    expect(t).toContain('運転者H／車両：パッソ');
+    expect(t).toContain('発信：運転者H／車両：パッソ');
+    expect(t).not.toContain('虎の巻から');
     expect(t).toContain('来ていない・所在不明：*そら*');
     expect(t).toContain('状況：下校時刻を20分過ぎても来ない');
     expect(t).toContain('<https://k-three.github.io/yomicam-driving/admin.html|送迎記録>');
@@ -23,8 +24,13 @@ describe('Slack の一報', () => {
     expect(t.startsWith('<!channel> 🚨 *緊急：ケガ*（14:32〜）')).toBe(true);
     expect(t).toContain('ケガをした児童：*りおん*');
     expect(raiseText({ ...inc, kind: '所在不明' }, inc.startedMs)).toContain('来ていない・所在不明：*そら*');
-    expect(raiseText({ ...inc, kind: '交通事故' }, inc.startedMs)).toContain('乗っていた児童：*そら*');
+    expect(raiseText({ ...inc, kind: '交通事故' }, inc.startedMs)).toContain('関係する児童：*そら*');
     expect(raiseText({ ...inc, kind: '体調不良' }, inc.startedMs)).toContain('具合が悪い児童：*そら*');
+  });
+  it('虎の巻から出したら、そう書く（車両は無い）', () => {
+    const t = raiseText({ ...inc, kind: '所在不明', via: '虎の巻', driver: 'はあと', vehicle: '', place: '読谷村文化センター' }, inc.startedMs);
+    expect(t).toContain('発信：はあと（虎の巻から）');
+    expect(t).toContain('場所：読谷村文化センター');
   });
   it('種別を持たない古い記録は、これまでどおりの見出し', () => {
     expect(raiseText(inc, inc.startedMs).startsWith('<!channel> 🚨 *緊急対応中*（14:32〜）')).toBe(true);
