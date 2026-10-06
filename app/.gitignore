@@ -10,3 +10,8 @@ tests/out*.pdf
 # エミュレータのログ
 firestore-debug.log
 firebase-debug.log
+
+# Cloud Functions：配置のたびに deploy.sh が作る／試験用の秘密情報
+functions/.env
+functions/.secret.local
+functions/.env.local

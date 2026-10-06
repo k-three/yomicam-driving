@@ -111,6 +111,10 @@ export type Incident = {
   closedMs: number;
   closedBy: string;
   closedNote: string;
+  /** Slack への一報の結果。サーバー（Cloud Functions）が書き戻す。まだなら null */
+  slack: { ok: boolean; error: string } | null;
+  /** この端末から送ったが、まだサーバーに届いていない */
+  pending: boolean;
 };
 
 export type Severity = '要確認' | '確認推奨';

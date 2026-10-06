@@ -249,7 +249,8 @@ Firestore の端末内キャッシュを有効にしてあるので、**圏外�
 
 ## 🚨 緊急（こどもの所在が分からない、など）
 
-運転手アプリ・管理画面の右上に「🚨 緊急」がある。押すとやることは2つだけ。
+運転手アプリ・管理画面の右上に「🚨 緊急」がある。押すとやることは2つだけ
+（あわせて Slack に自動で一報が出る。下記）。
 
 1. **電話をかける** … 設定で登録した緊急連絡先を上から順に優先して出す（1番目が最初に
    選ばれる）。大きなボタンを押すと電話アプリが開く（`tel:`）。
@@ -265,8 +266,54 @@ Firestore の端末内キャッシュを有効にしてあるので、**圏外�
 `<script src="https://k-three.github.io/yomicam-driving/alert.js" defer>` の1行だけ。
 誰が・どこで・誰がいないか、は送迎記録アプリと電話でしか分からない。
 
-Slack への自動投稿は入れていない（公開サイトに Webhook の URL を置けないため）。
-入れる場合は小さな中継（GAS など）が要る。
+### Slack への自動投稿（Cloud Functions）
+
+「緊急対応中にする」を押すと、サーバー側（`functions/`）が Slack の #安全-緊急 に一報を出す。
+解決・取り消しのときもお知らせを出す。
+
+- **なぜサーバー側か**：Slack の投稿先 URL は知っていれば誰でも投稿できる秘密なので、
+  公開サイトには置けない。Secret Manager の `SLACK_WEBHOOK_URL` に置き、関数だけが読む。
+  また、押した人の電波が弱くても、記録がサーバーに届いた時点で必ず投稿される
+  （遅れて届いたら、Slack の文面にそう書く）。
+- **結果は帯に出る**：「Slack に投稿しています…」→「✓ Slack に投稿済み」。
+  投稿できなかったとき・90秒たっても結果が戻らないときは「手動で投稿してください」。
+  端末からまだ送れていないときは「まだ送信できていません — 電話で伝えてください」。
+- 文面は `functions/message.js`。入力欄に `<!everyone>` などを仕込めないよう書式文字を逃がしている。
+- 費用：緊急のときにしか動かないので、無料枠（月200万回の呼び出しなど）の範囲に収まる見込み。
+  ただし Blaze（従量課金）が前提なので、Google Cloud で**予算アラート**（例：月500円）を
+  設定しておくこと。
+
+#### 配置のしかた（初回だけ。手元に Node.js は要らない）
+
+1. **Slack で投稿先 URL を作る**
+   https://api.slack.com/apps →「Create New App」→「From scratch」→ 名前「送迎記録」・ワークスペースを選ぶ
+   → 左の「Incoming Webhooks」を On →「Add New Webhook」→ #安全-緊急 を選んで許可
+   → 表示された `https://hooks.slack.com/services/...` をコピー（**この URL はどこにも貼らない**。次の手順の入力欄だけ）。
+   ワークスペースでアプリの追加に管理者の承認が要る設定なら、Slack の管理者に承認を頼む。
+2. **Google Cloud Shell を開く**
+   https://console.cloud.google.com/?project=yomicam-driving&cloudshell=true
+   （Firebase と同じ Google アカウントで。画面下に黒い端末が開く）
+3. **次の1行を貼って Enter**
+   ```
+   (git -C yomicam-driving pull -q 2>/dev/null || git clone -q https://github.com/k-three/yomicam-driving) && bash yomicam-driving/app/functions/deploy.sh
+   ```
+   途中で聞かれること：
+   - Firebase へのログイン（URL を開いてコードを貼る。聞かれないこともある）
+   - Slack の URL（手順1でコピーしたもの。貼っても画面には出ない）
+4. 「完了しました」と出たら、管理画面で「🚨 緊急」→「緊急対応中にする」→ Slack に出ることを確認
+   →「対応・解決」→「誤報だった（取り消す）」で閉じる（取り消しのお知らせも出る）。
+
+`deploy.sh` は Firestore の場所を調べて、関数を同じ場所に置く（違う場所だと動かないため）。
+2回目以降も同じ1行でよい。投稿先を変えるときは `bash yomicam-driving/app/functions/deploy.sh --reset-url`。
+
+初回の配置で「Eventarc」「権限」などのエラーが出たら、権限の反映待ちのことが多い。
+数分おいて同じ1行をもう一度実行する。
+
+#### 試験
+
+`npm run test:functions` で、Functions と Firestore のエミュレータの上で
+「書く → 関数が動く → 偽の Slack に届く → 結果が書き戻る」までを通しで確かめる
+（二重投稿しないこと・失敗が書き戻ることも含む）。CI でも毎回実行している。
 
 ## 記録の直し方（管理者）
 

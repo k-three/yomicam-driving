@@ -240,8 +240,15 @@ export class MemoryStore implements Store {
     this.incidents.push({
       id: `i${++this.seq}`, date: today(), startedAt: hhmm(), startedMs: Date.now(), ...input,
       status: 'open', outcome: '', closedAt: '', closedMs: 0, closedBy: '', closedNote: '',
+      slack: null, pending: false,
     });
     this.emit();
+  }
+
+  /** 自動テスト用：サーバーが Slack の結果を書き戻した、という状態を作る */
+  setIncidentState(o: { slack?: { ok: boolean; error: string } | null; pending?: boolean }) {
+    const i = this.incidents.find(x => x.status === 'open');
+    if (i) { Object.assign(i, o); this.emit(); }
   }
 
   async closeIncident(id: string, outcome: 'resolved' | 'cancelled', input: { by: string; note: string }) {

@@ -92,9 +92,12 @@ service cloud.firestore {
     // 入るので、ログインした人だけが読める。閉じるときに触れるのは閉じ方の項目だけ
     match /incidents/{id} {
       allow read: if member();
+      // slack 欄（Slack に投稿できたか）はサーバー（Cloud Functions）だけが書く。
+      // 画面の「投稿済み」を偽れないよう、アプリからは入れさせない
       allow create: if member()
         && request.resource.data.status == 'open'
         && request.resource.data.createdBy == request.auth.uid
+        && !('slack' in request.resource.data)
         && (isAdmin() || request.resource.data.ymd == todayNum());
       allow update: if member()
         && request.resource.data.diff(resource.data).affectedKeys()

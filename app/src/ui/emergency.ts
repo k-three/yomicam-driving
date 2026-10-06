@@ -19,6 +19,23 @@ export function elapsedText(sinceMs: number, nowMs = Date.now()): string {
   return min < 60 ? `${min}分経過` : `${Math.floor(min / 60)}時間${min % 60}分経過`;
 }
 
+/** Slack への投稿をこの時間待っても結果が戻らなければ、手動での投稿を促す */
+const SLACK_WAIT_MS = 90_000;
+const SLACK_UNCONFIRMED = '⚠ Slack への投稿を確認できません。手動で投稿してください';
+
+/** Slack に届いたか。押した人が「全員に伝わった」と思い込まないよう、正直に出す */
+function slackLine(inc: Incident): string {
+  if (inc.pending)
+    return `<span class="sos-slack ng" data-testid="sos-slack">📡 まだ送信できていません（電波を確認）。全員には届いていません — 電話で伝えてください</span>`;
+  if (inc.slack?.ok)
+    return `<span class="sos-slack ok" data-testid="sos-slack">✓ Slack に投稿済み</span>`;
+  if (inc.slack)
+    return `<span class="sos-slack ng" data-testid="sos-slack">⚠ Slack に投稿できませんでした。手動で投稿してください</span>`;
+  const late = Date.now() - inc.startedMs > SLACK_WAIT_MS;
+  return `<span class="sos-slack${late ? ' ng' : ''}" data-testid="sos-slack" data-slack-wait="${inc.startedMs}">${
+    late ? SLACK_UNCONFIRMED : 'Slack に投稿しています…'}</span>`;
+}
+
 /** すべての画面の先頭に出す帯。無ければ空文字 */
 export function incidentBanner(inc: Incident | null): string {
   if (!inc) return '';
@@ -30,6 +47,7 @@ export function incidentBanner(inc: Incident | null): string {
       <span class="sos-time">${esc(inc.startedAt)}〜　<em data-since-ms="${inc.startedMs}">${elapsedText(inc.startedMs)}</em></span>
     </div>
     <div class="sos-detail">${esc(who)}${kids}${inc.note ? `　${esc(inc.note)}` : ''}</div>
+    ${slackLine(inc)}
     <button type="button" class="sos-act" data-act="sos">対応・解決</button>
   </div>`;
 }
@@ -42,6 +60,12 @@ export function startElapsedTicker() {
     const now = Date.now();
     document.querySelectorAll<HTMLElement>('[data-since-ms]').forEach(el => {
       el.textContent = elapsedText(Number(el.dataset.sinceMs), now);
+    });
+    // 結果が戻らないまま時間が過ぎたら、待っている表示を「確認できない」に切り替える
+    document.querySelectorAll<HTMLElement>('[data-slack-wait]').forEach(el => {
+      if (now - Number(el.dataset.slackWait) > SLACK_WAIT_MS) {
+        el.textContent = SLACK_UNCONFIRMED; el.classList.add('ng');
+      }
     });
   }, 30_000);
 }

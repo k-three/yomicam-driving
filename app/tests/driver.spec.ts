@@ -447,3 +447,28 @@ test('連絡先が未登録でも、緊急の帯は出せる', async ({ page }) 
   await dialog.getByTestId('raise').click();
   await expect(page.getByTestId('sos-banner')).toContainText('喜名小学校');
 });
+
+test('🚨 帯に、Slack に届いたかが出る（届いていないのに伝わったと思わせない）', async ({ page }) => {
+  await unlock(page);
+  await page.getByTestId('sos').click();
+  const dialog = page.getByRole('dialog');
+  await dialog.locator('[name=place]').selectOption('喜名小学校');
+  page.once('dialog', d => d.accept());
+  await dialog.getByTestId('raise').click();
+  const slack = page.getByTestId('sos-slack');
+  type W = { setIncidentState: (o: unknown) => void };
+
+  // サーバーからの結果待ち
+  await expect(slack).toHaveText('Slack に投稿しています…');
+  // 電波が悪く、まだ端末から出ていない
+  await page.evaluate(() => (window as unknown as W).setIncidentState({ pending: true }));
+  await expect(slack).toContainText('まだ送信できていません');
+  await expect(slack).toContainText('電話で伝えてください');
+  // 届いて、Slack に投稿できた
+  await page.evaluate(() => (window as unknown as W).setIncidentState({ pending: false, slack: { ok: true, error: '' } }));
+  await expect(slack).toHaveText('✓ Slack に投稿済み');
+  await page.screenshot({ path: 'tests/shot-sos-slack.png' });
+  // 投稿できなかった
+  await page.evaluate(() => (window as unknown as W).setIncidentState({ slack: { ok: false, error: '500' } }));
+  await expect(slack).toContainText('投稿できませんでした。手動で投稿してください');
+});

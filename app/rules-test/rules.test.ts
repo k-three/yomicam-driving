@@ -98,6 +98,10 @@ describe('緊急対応', () => {
       { active: true, since: serverTimestamp(), sinceMs: Date.now(), sinceHm: '14:40', incidentId: 'new',
         updatedAt: serverTimestamp() }));
   });
+  it('Slack の結果（slack 欄）はアプリから入れられない。「投稿済み」を偽れない', async () => {
+    await assertFails(setDoc(doc(asPassword(DRIVER), 'incidents', 'new'), { ...incident(), slack: { ok: true } }));
+    await assertFails(updateDoc(doc(asPassword(DRIVER), 'incidents', 'open1'), { slack: { ok: true } }));
+  });
   it('いきなり閉じた状態では作れない', async () => {
     await assertFails(setDoc(doc(asPassword(DRIVER), 'incidents', 'new'), incident({ status: 'closed' })));
   });

@@ -81,7 +81,8 @@ function toCheck(id: string, d: Doc): AlcoholCheck {
   };
 }
 
-function toIncident(id: string, d: Doc): Incident {
+function toIncident(id: string, d: Doc, pending = false): Incident {
+  const sl = d.slack as Doc | undefined;
   return {
     id,
     date: String(d.date ?? ''),
@@ -98,6 +99,8 @@ function toIncident(id: string, d: Doc): Incident {
     closedMs: Number(d.closedMs ?? 0),
     closedBy: String(d.closedBy ?? ''),
     closedNote: String(d.closedNote ?? ''),
+    slack: sl && typeof sl.ok === 'boolean' ? { ok: sl.ok, error: String(sl.error ?? '') } : null,
+    pending,
   };
 }
 
@@ -174,7 +177,10 @@ export class FirestoreStore implements Store {
     // 開いている緊急対応。日付に関係なく、閉じられるまで出し続ける
     this.offAll.push(onSnapshot(query(collection(this.db, 'incidents'), where('status', '==', 'open')),
       { includeMetadataChanges: true },
-      s => { this.incidents = s.docs.map(x => toIncident(x.id, x.data() as Doc)); this.emit(); },
+      s => {
+        this.incidents = s.docs.map(x => toIncident(x.id, x.data() as Doc, x.metadata.hasPendingWrites));
+        this.emit();
+      },
       e => this.onError(`緊急対応の状態を読み込めませんでした（${e.code}）`)));
     this.watchDay();
     this.timer = setInterval(() => {

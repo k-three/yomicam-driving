@@ -24,6 +24,8 @@ if (new URLSearchParams(location.search).get('mock') === '1') {
   // 児童を登録した状態を、自動テストから作れるようにする
   (window as unknown as { seedKids?: () => void }).seedKids = () => store.seedChildren();
   (window as unknown as { seedContacts?: () => void }).seedContacts = () => store.seedContacts();
+  (window as unknown as { setIncidentState?: unknown }).setIncidentState =
+    (o: Parameters<MemoryStore['setIncidentState']>[0]) => store.setIncidentState(o);
   passwordGate(root, {
     title: '送迎記録', note: NOTE,
     signIn: async pw => {

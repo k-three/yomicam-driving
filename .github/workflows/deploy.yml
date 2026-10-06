@@ -37,7 +37,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: |
+            app/package-lock.json
+            app/functions/package-lock.json
       - run: npm ci
       - name: 型チェックとビルド
         run: npm run build
@@ -51,6 +53,12 @@ jobs:
           java-version: '21'
       - name: セキュリティルールの検証
         run: npm run test:rules
+      # Slack への自動投稿（Cloud Functions）を、Functions と Firestore のエミュレータの上で
+      # 偽の Slack に向けて通しで確かめる。本番の Slack には投稿しない
+      - name: Slack 自動投稿の検証
+        run: |
+          npm ci --prefix functions
+          npm run test:functions
       - name: ブラウザでの確認
         run: |
           npx playwright install --with-deps chromium
