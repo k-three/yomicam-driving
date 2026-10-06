@@ -61,5 +61,6 @@ export const CONFIG: Config = {
   children: [],
   bases: ['読谷村文化センター', '自宅', 'その他'],
   inspectors: ['安全運転管理者'],
+  contacts: [],
   schools: ['読谷小学校', '渡慶次小学校', '喜名小学校', '古堅小学校', '古堅南小学校', 'よみたん自然学校'],
 };

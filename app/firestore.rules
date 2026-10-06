@@ -88,6 +88,32 @@ service cloud.firestore {
       allow delete: if isAdmin() || (member() && isToday());
     }
 
+    // 緊急対応（こどもの所在が分からない、など）。本体には誰が・どこで・誰がいないかが
+    // 入るので、ログインした人だけが読める。閉じるときに触れるのは閉じ方の項目だけ
+    match /incidents/{id} {
+      allow read: if member();
+      allow create: if member()
+        && request.resource.data.status == 'open'
+        && request.resource.data.createdBy == request.auth.uid
+        && (isAdmin() || request.resource.data.ymd == todayNum());
+      allow update: if member()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'outcome', 'closedAt', 'closedMs', 'closedBy', 'closedNote']);
+      allow delete: if isAdmin();
+    }
+
+    // ログインしていなくても読める合図。虎の巻の画面はこれを読んで赤い帯を出す。
+    // 入れられる項目を決め打ちにして、個人情報が混ざらないようにしてある
+    match /public/alert {
+      allow read: if true;
+      allow write: if member()
+        && request.resource.data.keys().hasOnly(
+             ['active', 'since', 'sinceMs', 'sinceHm', 'incidentId', 'updatedAt'])
+        && request.resource.data.active is bool
+        && request.resource.data.get('sinceHm', '').size() <= 5
+        && request.resource.data.get('incidentId', '').size() <= 40;
+    }
+
     match /alcohol/{id} {
       allow read: if member();
       allow create: if isAdmin()

@@ -1,8 +1,8 @@
 /** メモリ上のデータ層。開発と自動テストで使う。
  *  Firestore 実装と同じ規則（記録できない操作は InputError）を守るので、
  *  ここで通ったフローは本番でも同じ順序で通る。 */
-import type { AlcoholCheck, Config, Rider, Stop, Trip } from '../domain/types';
-import { InputError, type AlcoholPatch, type Snapshot, type Store, type TripPatch } from './store';
+import type { AlcoholCheck, Config, Incident, Rider, Stop, Trip } from '../domain/types';
+import { InputError, type AlcoholPatch, type IncidentInput, type Snapshot, type Store, type TripPatch } from './store';
 import { hhmm, today } from './clock';
 
 /** マスタが未登録のときの初期値。
@@ -20,6 +20,8 @@ export const SEED_CONFIG: Config = {
   bases: ['読谷村文化センター', '自宅', 'その他'],
   inspectors: ['安全運転管理者'],
   schools: ['読谷小学校', '渡慶次小学校', '喜名小学校', '古堅小学校', '古堅南小学校', 'よみたん自然学校'],
+  // 緊急連絡先もここには置かない。管理画面の「設定」から登録する
+  contacts: [],
 };
 
 /** 'YYYY-MM-DD' の前日。月をまたいでも正しく戻る（サンプルの前日ぶんに使う） */
@@ -32,6 +34,7 @@ const dayBefore = (d: string) => {
 export class MemoryStore implements Store {
   private trips: Trip[] = [];
   private checks: AlcoholCheck[] = [];
+  private incidents: Incident[] = [];
   private listeners = new Set<(s: Snapshot) => void>();
   private seq = 0;
 
@@ -51,10 +54,20 @@ export class MemoryStore implements Store {
     this.emit();
   }
 
+  /** 連絡先だけを登録した状態にする（画面確認と自動テスト用。番号はつながらない） */
+  seedContacts() {
+    this.config = { ...this.config, contacts: [
+      { name: '安全管理者', phone: '090-0000-0001', note: '最優先' },
+      { name: '拠点', phone: '098-000-0002', note: '' },
+    ] };
+    this.emit();
+  }
+
   /** 開発・確認用のサンプル。画面の見え方を確かめるためのもので、本番では使わない。
    *  児童も仮名。実名は管理画面の「設定」から登録する */
   seedSample() {
     this.seedChildren();
+    this.seedContacts();
     const d = today();
     const t = (o: Partial<Trip> & Pick<Trip, 'id' | 'vehicle' | 'driver' | 'departAt'>): Trip => ({
       date: d, base: '読谷村文化センター', dest: '読谷村文化センター', returnAt: '',
@@ -112,6 +125,7 @@ export class MemoryStore implements Store {
       checks: this.checks.filter(c => c.date === d),
       pending: 0,
       configured: this.configured,
+      incident: this.incidents.find(i => i.status === 'open') ?? null,
     };
   }
   private emit() { const s = this.snapshot(); this.listeners.forEach(fn => fn(s)); }
@@ -216,6 +230,26 @@ export class MemoryStore implements Store {
       trips: this.trips.filter(t => inMonth(t.date)),
       checks: this.checks.filter(c => inMonth(c.date)),
     };
+  }
+
+  // --- 緊急対応 ---
+
+  async raiseIncident(input: IncidentInput) {
+    if (this.incidents.some(i => i.status === 'open'))
+      throw new InputError('すでに緊急対応中です。先に「解決」か「取り消し」をしてください。');
+    this.incidents.push({
+      id: `i${++this.seq}`, date: today(), startedAt: hhmm(), startedMs: Date.now(), ...input,
+      status: 'open', outcome: '', closedAt: '', closedMs: 0, closedBy: '', closedNote: '',
+    });
+    this.emit();
+  }
+
+  async closeIncident(id: string, outcome: 'resolved' | 'cancelled', input: { by: string; note: string }) {
+    const i = this.incidents.find(x => x.id === id);
+    if (!i || i.status !== 'open') throw new InputError('その緊急対応はすでに閉じられています。');
+    Object.assign(i, { status: 'closed' as const, outcome, closedAt: hhmm(), closedMs: Date.now(),
+                       closedBy: input.by, closedNote: input.note });
+    this.emit();
   }
 
   private photos = new Map<string, string>();

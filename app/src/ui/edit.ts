@@ -2,7 +2,7 @@
  *  運行中の記録も確定済みの記録も同じ形（Trip）なので、同じ画面で直せる。
  *  Apps Script 版では運行中の状態が別シートの状態JSONだったため手で直せず、
  *  「おかしいと分かっても直せない」状態が起きていた。ここではそれが起きない。 */
-import type { AlcoholCheck, Child, Config, Stop, Trip, Vehicle } from '../domain/types';
+import type { AlcoholCheck, Child, Config, Contact, Stop, Trip, Vehicle } from '../domain/types';
 import { shrink } from './photo';
 import type { TripPatch } from '../store/store';
 
@@ -213,6 +213,11 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     <td><input name="v-regno-${i}" value="${esc(v.regno)}" placeholder="沖縄500あ00-00"></td>
     <td><input name="v-active-${i}" type="checkbox"${v.active ? ' checked' : ''}></td>
     <td><button type="button" class="mini danger" data-del-veh="${i}">削除</button></td></tr>`;
+  const contactRow = (c: Contact, i: number) => `<tr data-contact="${i}">
+    <td><input name="c-name-${i}" value="${esc(c.name)}" placeholder="安全管理者"></td>
+    <td><input name="c-phone-${i}" value="${esc(c.phone)}" type="tel" inputmode="tel" placeholder="090-0000-0000"></td>
+    <td><input name="c-note-${i}" value="${esc(c.note)}" placeholder="最優先・在館 など"></td>
+    <td><button type="button" class="mini danger" data-del-contact="${i}">削除</button></td></tr>`;
   const kidRow = (c: Child, i: number) => `<tr data-kid="${i}">
     <td><input name="k-name-${i}" value="${esc(c.name)}" placeholder="山田太郎"></td>
     <td><input name="k-alias-${i}" value="${esc(c.alias)}" placeholder="たろう"></td>
@@ -244,7 +249,15 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     <table class="stops"><thead><tr>
       <th>車両</th><th>自動車登録番号</th><th>使用</th><th></th></tr></thead>
       <tbody data-vehs>${config.vehicles.map(vehRow).join('')}</tbody></table>
-    <button type="button" class="mini" data-add-veh>＋ 車両を追加</button>`);
+    <button type="button" class="mini" data-add-veh>＋ 車両を追加</button>
+
+    <p class="sub">緊急時の連絡先</p>
+    <p class="note">「🚨 緊急」ボタンの電話先。<b>上から順に優先</b>（1番目が最初に選ばれます）。
+      氏名と番号はここから登録して保存します（リポジトリには入りません）。</p>
+    <table class="stops"><thead><tr>
+      <th>名前</th><th>電話番号</th><th>メモ</th><th></th></tr></thead>
+      <tbody data-contacts>${config.contacts.map(contactRow).join('')}</tbody></table>
+    <button type="button" class="mini" data-add-contact>＋ 連絡先を追加</button>`);
 
   const kids = d.querySelector<HTMLElement>('[data-kids]')!;
   let k = config.children.length;
@@ -267,6 +280,17 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     bindVehDel();
     // 足した行にすぐ入力できるようにする（スマホで探させない）
     vehs.querySelector<HTMLInputElement>('tr:last-child input')?.focus();
+  });
+
+  const contacts = d.querySelector<HTMLElement>('[data-contacts]')!;
+  let c = config.contacts.length;
+  const bindContactDel = () => contacts.querySelectorAll<HTMLElement>('[data-del-contact]').forEach(b =>
+    b.onclick = () => b.closest('tr')!.remove());
+  bindContactDel();
+  d.querySelector('[data-add-contact]')!.addEventListener('click', () => {
+    contacts.insertAdjacentHTML('beforeend', contactRow({ name: '', phone: '', note: '' }, c++));
+    bindContactDel();
+    contacts.querySelector<HTMLInputElement>('tr:last-child input')?.focus();
   });
 
   const list = (name: string) => val(d, name).split('\n').map(s => s.trim()).filter(Boolean);
@@ -296,8 +320,17 @@ export function openConfigEditor(config: Config, handlers: { save: (c: Config) =
     // 同じ名前が2つあると、運行状況が車両ごとにまとまらなくなる
     if (new Set(vehicles.map(x => x.name)).size !== vehicles.length)
       return '同じ名前の車両が2つ以上あります。名前を分けてください。';
+    const contactList: Contact[] = [];
+    for (const tr of contacts.querySelectorAll<HTMLElement>('[data-contact]')) {
+      const i = tr.dataset.contact!;
+      const name = val(tr, `c-name-${i}`), phone = val(tr, `c-phone-${i}`).replace(/\s/g, '');
+      if (!name && !phone) continue;               // 空の行は無視する
+      if (!name || !phone) return '緊急連絡先は、名前と電話番号の両方を入れてください。';
+      if (!/^[0-9+\-()]+$/.test(phone)) return `電話番号の形が違います：${phone}`;
+      contactList.push({ name, phone, note: val(tr, `c-note-${i}`) });
+    }
     handlers.save({ drivers, schools, bases: list('bases'), inspectors: list('inspectors'),
-                    vehicles, children });
+                    vehicles, children, contacts: contactList });
     return null;
   });
 }

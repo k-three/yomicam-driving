@@ -11,7 +11,7 @@ import {
   assertFails, assertSucceeds, initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 let env: RulesTestEnvironment;
 
@@ -65,6 +65,58 @@ beforeEach(async () => {
     const { ymd, ...noYmd } = trip({ status: 'done', returnAt: '11:00' });
     void ymd;
     await setDoc(doc(db, 'trips', 'today-legacy'), noYmd);
+    await setDoc(doc(db, 'incidents', 'open1'), incident());
+    await setDoc(doc(db, 'public', 'alert'), { active: true, sinceMs: 1, sinceHm: '14:32', incidentId: 'open1' });
+  });
+});
+
+const incident = (o: Record<string, unknown> = {}) => ({
+  date: dateOf(new Date()), ymd: TODAY, startedAt: '14:32', startedMs: 1, driver: '運転者A',
+  vehicle: 'パッソ', place: '渡慶次小学校', riders: ['そら'], note: '', status: 'open', outcome: '',
+  closedAt: '', closedMs: 0, closedBy: '', closedNote: '', createdBy: DRIVER, ...o,
+});
+
+describe('緊急対応', () => {
+  it('ログインしていなくても合図（public/alert）は読める。虎の巻の帯はこれで動く', async () => {
+    await assertSucceeds(getDoc(doc(env.unauthenticatedContext().firestore(), 'public', 'alert')));
+  });
+  it('Firebase SDK 無しの REST でも、ログイン無しで合図を読める（alert.js の経路）', async () => {
+    const r = await fetch('http://127.0.0.1:8080/v1/projects/demo-yomicam/databases/(default)/documents/public/alert');
+    expect(r.status).toBe(200);
+    const j = await r.json() as { fields: { active: { booleanValue: boolean } } };
+    expect(j.fields.active.booleanValue).toBe(true);
+  });
+  it('ログインしていない人は本体（誰が・どこで）を読めない', async () => {
+    await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), 'incidents', 'open1')));
+  });
+  it('ログインしていない人は合図を書けない', async () => {
+    await assertFails(setDoc(doc(env.unauthenticatedContext().firestore(), 'public', 'alert'), { active: false }));
+  });
+  it('運転手は緊急対応を立てられる', async () => {
+    await assertSucceeds(setDoc(doc(asPassword(DRIVER), 'incidents', 'new'), incident()));
+    await assertSucceeds(setDoc(doc(asPassword(DRIVER), 'public', 'alert'),
+      { active: true, since: serverTimestamp(), sinceMs: Date.now(), sinceHm: '14:40', incidentId: 'new',
+        updatedAt: serverTimestamp() }));
+  });
+  it('いきなり閉じた状態では作れない', async () => {
+    await assertFails(setDoc(doc(asPassword(DRIVER), 'incidents', 'new'), incident({ status: 'closed' })));
+  });
+  it('合図に決めた項目以外（個人情報など）は入れられない', async () => {
+    await assertFails(setDoc(doc(asPassword(DRIVER), 'public', 'alert'),
+      { active: true, sinceMs: 1, sinceHm: '14:40', incidentId: 'x', driver: '運転者A' }));
+  });
+  it('運転手は解決・取り消しで閉じられる', async () => {
+    await assertSucceeds(updateDoc(doc(asPassword(DRIVER), 'incidents', 'open1'),
+      { status: 'closed', outcome: 'resolved', closedAt: '14:50', closedMs: 2, closedBy: '運転者A', closedNote: '' }));
+    await assertSucceeds(setDoc(doc(asPassword(DRIVER), 'public', 'alert'),
+      { active: false, incidentId: 'open1', updatedAt: serverTimestamp() }));
+  });
+  it('閉じる以外の項目（誰が・どこで）は書き換えられない', async () => {
+    await assertFails(updateDoc(doc(asPassword(DRIVER), 'incidents', 'open1'), { driver: '別の人' }));
+  });
+  it('運転手は記録を消せない。管理者は消せる', async () => {
+    await assertFails(deleteDoc(doc(asPassword(DRIVER), 'incidents', 'open1')));
+    await assertSucceeds(deleteDoc(doc(asPassword(ADMIN), 'incidents', 'open1')));
   });
 });
 

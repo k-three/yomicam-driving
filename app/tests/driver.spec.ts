@@ -386,3 +386,64 @@ test('どの画面でも、いまの段階と次にやることが分かる', as
   await expect(page.locator('.today .s.done')).toHaveCount(5);
   await expect(page.getByTestId('today')).toContainText('本日の運転は終了しました');
 });
+
+test('🚨 緊急：電話先を選べて、全員の画面に帯が出て、解決で消える', async ({ page }) => {
+  await unlock(page);
+  await page.evaluate(() => (window as unknown as { seedKids: () => void }).seedKids());
+  await page.evaluate(() => (window as unknown as { seedContacts: () => void }).seedContacts());
+  await expect(page.getByTestId('sos-banner')).toBeHidden();
+
+  // 学校に着いたところで、こどもが来ない
+  await page.getByTestId('alc-record-運転前').click();
+  await page.getByTestId('depart').click();
+  await page.getByRole('button', { name: /渡慶次小学校/ }).click();
+  await page.getByTestId('sos').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('まず電話');
+
+  // 連絡先は上から順に優先。切り替えると発信先も変わる
+  const call = dialog.getByTestId('call');
+  await expect(call).toHaveAttribute('href', 'tel:090-0000-0001');
+  await expect(call).toContainText('安全管理者');
+  await dialog.getByTestId('contact').selectOption('1');
+  await expect(call).toHaveAttribute('href', 'tel:098-000-0002');
+  await expect(call).toContainText('拠点');
+
+  // いる学校のこどもが候補に出る。場所は入力させない
+  await dialog.getByRole('button', { name: /そら/ }).click();
+  await dialog.getByPlaceholder(/下校時刻/).fill('下校時刻を20分過ぎても来ない');
+  await page.screenshot({ path: 'tests/shot-sos-dialog.png', fullPage: true });
+  page.once('dialog', d => d.accept());
+  await dialog.getByTestId('raise').click();
+
+  const banner = page.getByTestId('sos-banner');
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText('緊急対応中');
+  await expect(banner).toContainText('渡慶次小学校');
+  await expect(banner).toContainText('そら');
+  await expect(banner).toContainText('分経過');
+  await page.screenshot({ path: 'tests/shot-sos.png', fullPage: true });
+
+  // 別の画面（運行状況）でも帯は出たまま
+  await page.getByRole('button', { name: '運行状況' }).click();
+  await expect(page.getByTestId('sos-banner')).toBeVisible();
+  await page.getByRole('button', { name: '記録' }).click();
+
+  // 解決すると消える
+  await banner.getByRole('button', { name: '対応・解決' }).click();
+  await expect(page.getByRole('dialog')).toContainText('緊急対応中');
+  await page.getByRole('dialog').getByTestId('resolve').click();
+  await expect(page.getByTestId('sos-banner')).toBeHidden();
+});
+
+test('連絡先が未登録でも、緊急の帯は出せる', async ({ page }) => {
+  await unlock(page);
+  await page.getByTestId('sos').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('緊急連絡先がまだ登録されていません');
+  // 運行中でなければ、場所を選ぶ
+  await dialog.locator('[name=place]').selectOption('喜名小学校');
+  page.once('dialog', d => d.accept());
+  await dialog.getByTestId('raise').click();
+  await expect(page.getByTestId('sos-banner')).toContainText('喜名小学校');
+});

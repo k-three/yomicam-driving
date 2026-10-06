@@ -10,12 +10,12 @@
  *  - 日付が変わったら購読し直す。日をまたいで開きっぱなしでも当日分に切り替わる。
  */
 import {
-  addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where,
-  type QuerySnapshot,
+  addDoc, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, serverTimestamp, setDoc,
+  updateDoc, where, writeBatch, type QuerySnapshot,
 } from 'firebase/firestore';
-import type { AlcoholCheck, Config, Rider, Stop, Trip } from '../domain/types';
+import type { AlcoholCheck, Config, Incident, Rider, Stop, Trip } from '../domain/types';
 import {
-  InputError, monthRange, type AlcoholPatch, type Snapshot, type Store, type TripPatch,
+  InputError, monthRange, type AlcoholPatch, type IncidentInput, type Snapshot, type Store, type TripPatch,
 } from './store';
 import { hhmm, today } from './clock';
 import { SEED_CONFIG } from './memory';
@@ -81,6 +81,26 @@ function toCheck(id: string, d: Doc): AlcoholCheck {
   };
 }
 
+function toIncident(id: string, d: Doc): Incident {
+  return {
+    id,
+    date: String(d.date ?? ''),
+    startedAt: String(d.startedAt ?? ''),
+    startedMs: Number(d.startedMs ?? 0),
+    driver: String(d.driver ?? ''),
+    vehicle: String(d.vehicle ?? ''),
+    place: String(d.place ?? ''),
+    riders: Array.isArray(d.riders) ? d.riders.map(String) : [],
+    note: String(d.note ?? ''),
+    status: d.status === 'closed' ? 'closed' : 'open',
+    outcome: d.outcome === 'resolved' || d.outcome === 'cancelled' ? d.outcome : '',
+    closedAt: String(d.closedAt ?? ''),
+    closedMs: Number(d.closedMs ?? 0),
+    closedBy: String(d.closedBy ?? ''),
+    closedNote: String(d.closedNote ?? ''),
+  };
+}
+
 /** config/master が未作成でも動くよう、足りない項目は初期値で埋める */
 function toConfig(d: Doc | null): Config {
   if (!d) return SEED_CONFIG;
@@ -95,9 +115,13 @@ function toConfig(d: Doc | null): Config {
         name: String(c.name ?? ''), alias: String(c.alias ?? c.name ?? ''),
         school: String(c.school ?? ''), grade: String(c.grade ?? ''), active: c.active !== false }))
     : [];
+  const contacts = Array.isArray(d.contacts)
+    ? (d.contacts as Doc[]).map(c => ({
+        name: String(c.name ?? ''), phone: String(c.phone ?? ''), note: String(c.note ?? '') }))
+    : [];
   return {
     drivers: list(d.drivers, SEED_CONFIG.drivers),
-    vehicles, children,
+    vehicles, children, contacts,
     bases: list(d.bases, SEED_CONFIG.bases),
     inspectors: list(d.inspectors, SEED_CONFIG.inspectors),
     schools: list(d.schools, SEED_CONFIG.schools),
@@ -114,6 +138,7 @@ export class FirestoreStore implements Store {
   private configured = false;
   private trips: Trip[] = [];
   private checks: AlcoholCheck[] = [];
+  private incidents: Incident[] = [];
   private tripSnap: QuerySnapshot | null = null;
   private checkSnap: QuerySnapshot | null = null;
   private day = today();
@@ -146,6 +171,11 @@ export class FirestoreStore implements Store {
         this.emit();
       },
       e => this.onError(`設定を読み込めませんでした（${e.code}）`)));
+    // 開いている緊急対応。日付に関係なく、閉じられるまで出し続ける
+    this.offAll.push(onSnapshot(query(collection(this.db, 'incidents'), where('status', '==', 'open')),
+      { includeMetadataChanges: true },
+      s => { this.incidents = s.docs.map(x => toIncident(x.id, x.data() as Doc)); this.emit(); },
+      e => this.onError(`緊急対応の状態を読み込めませんでした（${e.code}）`)));
     this.watchDay();
     this.timer = setInterval(() => {
       if (today() !== this.day) { this.day = today(); this.watchDay(); }
@@ -187,6 +217,7 @@ export class FirestoreStore implements Store {
       checks: [...this.checks].sort((a, b) => a.at.localeCompare(b.at)),
       pending: pendingIn(this.tripSnap) + pendingIn(this.checkSnap),
       configured: this.configured,
+      incident: [...this.incidents].sort((a, b) => a.startedMs - b.startedMs)[0] ?? null,
     };
   }
   private emit() { const s = this.snapshot(); this.listeners.forEach(fn => fn(s)); }
@@ -303,6 +334,42 @@ export class FirestoreStore implements Store {
 
   async saveConfig(config: Config) {
     this.send(setDoc(doc(this.db, 'config', 'master'), { ...config }));
+  }
+
+  // --- 緊急対応 ---
+
+  /** 緊急対応の本体（incidents）と、ログインしていなくても読める合図（public/alert）を
+   *  一緒に書く。合図には個人情報を入れない（虎の巻の画面はログイン無しでこれを読む）。 */
+  async raiseIncident(input: IncidentInput) {
+    if (this.incidents.length)
+      throw new InputError('すでに緊急対応中です。先に「解決」か「取り消し」をしてください。');
+    const d = this.day, at = hhmm(), ms = Date.now();
+    const id = `${d.replace(/-/g, '')}-${at.replace(':', '')}-${Math.random().toString(36).slice(2, 6)}`;
+    const b = writeBatch(this.db);
+    b.set(doc(this.db, 'incidents', id), {
+      ...input, date: d, ymd: ymdOf(d), startedAt: at, startedMs: ms,
+      status: 'open', outcome: '', closedAt: '', closedMs: 0, closedBy: '', closedNote: '',
+      createdBy: this.uid,
+    });
+    b.set(doc(this.db, 'public', 'alert'), {
+      active: true, since: serverTimestamp(), sinceMs: ms, sinceHm: at, incidentId: id,
+      updatedAt: serverTimestamp(),
+    });
+    this.send(b.commit());
+  }
+
+  async closeIncident(id: string, outcome: 'resolved' | 'cancelled', input: { by: string; note: string }) {
+    if (!this.incidents.some(i => i.id === id))
+      throw new InputError('その緊急対応はすでに閉じられています。');
+    const b = writeBatch(this.db);
+    b.update(doc(this.db, 'incidents', id), {
+      status: 'closed', outcome, closedAt: hhmm(), closedMs: Date.now(),
+      closedBy: input.by, closedNote: input.note,
+    });
+    b.set(doc(this.db, 'public', 'alert'), {
+      active: false, incidentId: id, updatedAt: serverTimestamp(),
+    });
+    this.send(b.commit());
   }
 
   /** 月次帳票用。当日分の購読とは別に、その月だけを1回読む */

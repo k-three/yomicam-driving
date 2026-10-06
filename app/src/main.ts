@@ -23,6 +23,7 @@ if (new URLSearchParams(location.search).get('mock') === '1') {
   const store = new MemoryStore();
   // 児童を登録した状態を、自動テストから作れるようにする
   (window as unknown as { seedKids?: () => void }).seedKids = () => store.seedChildren();
+  (window as unknown as { seedContacts?: () => void }).seedContacts = () => store.seedContacts();
   passwordGate(root, {
     title: '送迎記録', note: NOTE,
     signIn: async pw => {

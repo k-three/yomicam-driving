@@ -14,6 +14,7 @@ import { renderBoard } from './board';
 import { renderTimeline, attachTooltip } from './timeline';
 import { ALERT } from '../config';
 import { removeTripAndAsk } from './remove';
+import { incidentBanner, openEmergency, startElapsedTicker } from './emergency';
 import { BUILD } from '../config';
 import { hhmm } from '../store/clock';
 
@@ -46,6 +47,7 @@ export class App {
   // ログインは入口（main.ts）で済んでいる。ここは記録だけを受け持つ
   constructor(private root: HTMLElement, private store: Store) {
     store.subscribe(s => { this.snap = s; this.watchPending(s.pending); this.render(); });
+    startElapsedTicker();
   }
 
   /** 送信中の状態を追う。すぐ届いたぶんは画面に出さない */
@@ -148,7 +150,9 @@ export class App {
     const sync = stuck
       ? `<p class="pending" data-testid="pending">📡 送信待ち ${pending}件　電波が戻ると自動で送られます。記録は消えないので、このまま続けて大丈夫です</p>`
       : '';
-    return `<header><p class="logo">送迎記録<small>よみたん放課後キャンパス</small></p></header>${sync}
+    return `${incidentBanner(this.snap?.incident ?? null)}
+      <header><p class="logo">送迎記録<small>よみたん放課後キャンパス</small></p>
+        <button type="button" class="sos-btn" data-act="sos" data-testid="sos">🚨 緊急</button></header>${sync}
       <div class="picks">
         <button class="pick${this.driver ? '' : ' unset'}" data-testid="pick-driver"><small>運転者</small><b>${esc(this.driver || '選ぶ')}</b></button>
         <button class="pick${this.vehicle ? '' : ' unset'}" data-testid="pick-vehicle"><small>車両</small><b>${esc(this.vehicle || '選ぶ')}</b></button>
@@ -157,6 +161,25 @@ export class App {
         <button class="tab${this.view === 'record' ? ' on' : ''}" data-view="record">記録</button>
         <button class="tab${this.view === 'board' ? ' on' : ''}" data-view="board">運行状況</button>
       </nav>`;
+  }
+
+  /** 🚨 緊急。いまの運行から「どこにいるか」を添えて開く（入力させない） */
+  private openSos() {
+    const t = this.myTrip();
+    const open = t ? this.openStop(t) : undefined;
+    const last = t?.stops[t.stops.length - 1];
+    const place = open ? open.school
+      : t ? (last ? `${last.school} → 拠点（移動中）` : `${t.base} → 学校（移動中）`)
+      : '';
+    const kids = open ? this.childrenAt(open.school) : this.config.children.filter(c => c.active);
+    openEmergency({
+      incident: this.snap?.incident ?? null, config: this.config,
+      who: this.driver || '運転者', vehicle: this.vehicle, place, kids,
+      raise: input => this.run(() => this.store.raiseIncident(input), '全員の画面に「緊急対応中」を出しました'),
+      close: (id, outcome, note) => this.run(
+        () => this.store.closeIncident(id, outcome, { by: this.driver || '運転者', note }),
+        outcome === 'resolved' ? '解決を記録しました。おつかれさまでした' : '取り消しました'),
+    });
   }
 
   /** 1日の流れ。どの画面でも同じ並びで出し、いまどこにいるかを示す。
@@ -403,6 +426,7 @@ export class App {
     this.root.querySelectorAll<HTMLElement>('[data-view]').forEach(b => b.onclick = () => {
       this.view = b.dataset.view as View; this.render();
     });
+    this.root.querySelectorAll<HTMLElement>('[data-act=sos]').forEach(b => b.onclick = () => this.openSos());
     q('[data-testid=pick-driver]')?.addEventListener('click', () => { this.picking = 'driver'; this.render(); });
     q('[data-testid=pick-vehicle]')?.addEventListener('click', () => { this.picking = 'vehicle'; this.render(); });
 

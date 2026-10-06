@@ -1,6 +1,6 @@
 /** データ層の入口。開発・テストではメモリ実装、本番では Firestore 実装を使う。
  *  画面はこの型だけに依存させ、Firebase の有無に関わらず動かせるようにする。 */
-import type { Trip, AlcoholCheck, Config, Stop, Day, Rider } from '../domain/types';
+import type { Trip, AlcoholCheck, Config, Stop, Day, Rider, Incident } from '../domain/types';
 
 export type Snapshot = {
   config: Config;
@@ -11,7 +11,11 @@ export type Snapshot = {
   pending: number;
   /** 運転者・車両の一覧が登録済みか。false なら仮の名前のまま動いている */
   configured: boolean;
+  /** いま開いている緊急対応。無ければ null。日付をまたいでも閉じるまで残る */
+  incident: Incident | null;
 };
+
+export type IncidentInput = Pick<Incident, 'driver' | 'vehicle' | 'place' | 'riders' | 'note'>;
 
 /** 管理者が直せる項目。運転手アプリからは触らない */
 export type TripPatch = Partial<Pick<Trip,
@@ -49,6 +53,12 @@ export interface Store {
 
   /** 月次帳票のためにひと月分をまとめて読む */
   loadMonth(ym: string): Promise<{ trips: Trip[]; checks: AlcoholCheck[] }>;
+
+  // --- 緊急対応 ---
+  /** 「緊急対応中」にする。同時に開けるのは1件（開いている間はまず解決か取り消しを求める） */
+  raiseIncident(input: IncidentInput): Promise<void>;
+  /** 解決、または誤報として取り消す。どちらも記録として残る */
+  closeIncident(id: string, outcome: 'resolved' | 'cancelled', input: { by: string; note: string }): Promise<void>;
 }
 
 /** 記録できない操作。画面はこれを捕まえて理由を出す（再試行しない） */

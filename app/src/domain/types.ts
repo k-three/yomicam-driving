@@ -75,6 +75,10 @@ export type Child = {
   active: boolean;
 };
 
+/** 緊急時の連絡先。上から順に優先。実名と電話番号はこのリポジトリに置かず、
+ *  管理画面の「設定」から登録して Firestore（config/master）に保存する。 */
+export type Contact = { name: string; phone: string; note: string };
+
 export type Config = {
   drivers: string[];
   vehicles: Vehicle[];
@@ -82,6 +86,31 @@ export type Config = {
   bases: string[];
   inspectors: string[];
   schools: string[];
+  contacts: Contact[];
+};
+
+/** 緊急対応（こどもの所在が分からない、など）。開始から解決までを1件として残す。
+ *  開いている間は、送迎記録・虎の巻のすべての画面の先頭に赤い帯が出る。 */
+export type Incident = {
+  id: string;
+  date: Day;
+  /** 開始時刻。表示は 'HH:MM'、経過時間の計算はエポックms で行う */
+  startedAt: Time;
+  startedMs: number;
+  /** 誰が・どの車で・どこで。管理画面から出したときは運転者が '管理者' になる */
+  driver: string;
+  vehicle: string;
+  place: string;
+  /** 来ていない・所在が分からない児童の呼び名（任意） */
+  riders: string[];
+  note: string;
+  status: 'open' | 'closed';
+  /** 閉じ方。解決したのか、誤報として取り消したのか */
+  outcome: '' | 'resolved' | 'cancelled';
+  closedAt: Time;
+  closedMs: number;
+  closedBy: string;
+  closedNote: string;
 };
 
 export type Severity = '要確認' | '確認推奨';

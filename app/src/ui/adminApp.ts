@@ -15,6 +15,7 @@ import { openAlcoholEditor, openConfigEditor, openTripEditor } from './edit';
 import { printSheets } from './print';
 import { removeTripAndAsk } from './remove';
 import { showPhoto } from './photo';
+import { incidentBanner, openEmergency, startElapsedTicker } from './emergency';
 import { toast } from './toast';
 import { buildXlsx, download } from '../export/xlsx';
 import { hhmm, today } from '../store/clock';
@@ -55,6 +56,7 @@ export class AdminApp {
     this.banner = banner;
     store.subscribe(s => { this.snap = s; this.render(); });
     attachTooltip(root);
+    startElapsedTicker();
     // 記録に動きが無くても、経過時間と「現在」の線は進める。
     // これが無いと、開きっぱなしの画面が止まって見える。
     setInterval(() => {
@@ -80,7 +82,7 @@ export class AdminApp {
 
   private render() {
     if (!this.snap) { this.root.innerHTML = '<p class="boot">読み込み中…</p>'; return; }
-    this.root.innerHTML = this.banner + this.nav() + this.setupNotice() +
+    this.root.innerHTML = incidentBanner(this.snap.incident) + this.banner + this.nav() + this.setupNotice() +
       (this.tab === 'board' ? this.viewBoard() : this.viewReport());
     this.bind();
   }
@@ -101,6 +103,7 @@ export class AdminApp {
       `<button class="tab${this.tab === k ? ' on' : ''}" data-tab="${k}">${label}</button>`;
     return `<nav class="tabs">${t('board', '運行状況')}${t('report', '月次帳票')}
       <span class="sp"></span>
+      <button class="tab sos-btn" data-act="sos" data-testid="sos">🚨 緊急</button>
       <button class="tab" data-act="config">設定</button></nav>`;
   }
 
@@ -237,6 +240,16 @@ export class AdminApp {
       this.tab = el.dataset.tab as Tab;
       if (this.tab === 'report' && !this.data) this.loadMonth(); else this.render();
     });
+
+    on('[data-act=sos]', () => openEmergency({
+      incident: this.snap!.incident, config: this.config,
+      who: '管理者', vehicle: '', place: '',
+      kids: this.config.children.filter(c => c.active),
+      raise: input => this.run(() => this.store.raiseIncident(input), '全員の画面に「緊急対応中」を出しました'),
+      close: (id, outcome, note) => this.run(
+        () => this.store.closeIncident(id, outcome, { by: '管理者', note }),
+        outcome === 'resolved' ? '解決を記録しました' : '取り消しました'),
+    }));
 
     on('[data-act=config]', () => openConfigEditor(this.config, {
       save: c => this.run(() => this.store.saveConfig(c), '設定を保存しました'),

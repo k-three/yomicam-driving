@@ -304,3 +304,44 @@ test('同じ名前の車両は登録できない', async ({ page }) => {
   await expect(dialog.locator('[data-err]')).toContainText('同じ名前の車両');
   await expect(dialog).toBeVisible();
 });
+
+test('管理画面からも緊急を出せて、誤報として取り消せる', async ({ page }) => {
+  await page.goto('admin.html?mock=1');
+  await page.getByTestId('sos').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByTestId('call')).toHaveAttribute('href', 'tel:090-0000-0001');
+  await dialog.locator('[name=place]').selectOption('古堅小学校');
+  page.once('dialog', d => d.accept());
+  await dialog.getByTestId('raise').click();
+
+  const banner = page.getByTestId('sos-banner');
+  await expect(banner).toContainText('緊急対応中');
+  await expect(banner).toContainText('管理者・古堅小学校');
+  // タブを切り替えても出たまま
+  await page.getByRole('button', { name: '月次帳票' }).click();
+  await expect(page.getByTestId('sos-banner')).toBeVisible();
+  await page.screenshot({ path: 'tests/shot-admin-sos.png', fullPage: true });
+
+  await banner.getByRole('button', { name: '対応・解決' }).click();
+  page.once('dialog', d => d.accept());
+  await page.getByRole('dialog').getByTestId('cancel-incident').click();
+  await expect(page.getByTestId('sos-banner')).toBeHidden();
+});
+
+test('緊急連絡先を設定から登録できる（名前と番号の両方が要る）', async ({ page }) => {
+  await page.goto('admin.html?mock=1&sample=0');
+  await page.getByRole('button', { name: '設定', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: '＋ 連絡先を追加' }).click();
+  const row = dialog.locator('tr[data-contact]').last();
+  await row.locator('input[name^=c-name-]').fill('安全管理者');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+  await expect(dialog.locator('[data-err]')).toContainText('名前と電話番号の両方');
+  await row.locator('input[name^=c-phone-]').fill('090 0000 0009');
+  await dialog.getByRole('button', { name: '保存する' }).click();
+  await expect(dialog).toBeHidden();
+
+  // 保存した連絡先が、緊急の電話先として出る（空白は取り除かれる）
+  await page.getByTestId('sos').click();
+  await expect(page.getByRole('dialog').getByTestId('call')).toHaveAttribute('href', 'tel:09000000009');
+});

@@ -152,3 +152,30 @@ button{font-family:inherit;cursor:pointer}
 .kid.on{background:var(--accent);border-color:var(--accent)}
 .kid.on b,.kid.on small{color:var(--accent-ink)}
 .big.secondary.on{background:var(--chip);border-color:var(--ink);font-weight:900}
+
+/* ---- 緊急対応 ----
+   帯は画面の先頭に貼り付き、スクロールしても消えない。誰が見ても同じものが出る。
+   色だけに頼らず 🚨 と文言で示す。 */
+.sos-banner{position:sticky;top:0;z-index:8;background:var(--danger);color:#fff;border-radius:0 0 14px 14px;
+  padding:10px 14px 10px;margin:0 -14px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;
+  box-shadow:0 3px 10px rgba(0,0,0,.25);line-height:1.5}
+.sos-banner .sos-main{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sos-banner b{font-size:17px;font-weight:900}
+.sos-banner .sos-time{font-weight:700;font-variant-numeric:tabular-nums}
+.sos-banner .sos-time em{font-style:normal;font-weight:900}
+.sos-banner .sos-detail{flex:1 1 100%;font-size:13px;opacity:.95}
+.sos-banner .sos-act{margin-left:auto;font-family:inherit;font-weight:900;font-size:13px;background:#fff;
+  color:var(--danger);border:none;border-radius:999px;padding:7px 14px;cursor:pointer;white-space:nowrap}
+body.wide .sos-banner{margin:0 0 12px;border-radius:0 0 14px 14px}
+/* 🚨 ボタン。常に見えるが、誤タップしにくいよう小さめ・輪郭だけ */
+.sos-btn{margin-left:auto;font-family:inherit;font-weight:900;font-size:13px;color:var(--danger);
+  background:var(--danger-soft);border:1.5px solid var(--danger);border-radius:999px;padding:7px 14px;cursor:pointer;
+  white-space:nowrap}
+.tabs .sos-btn{margin-left:0}
+/* 緊急ダイアログの中。電話は <a> なので、ボタンと同じ見た目を当てる */
+.big.call{text-align:center;text-decoration:none;box-sizing:border-box}
+.big.danger{background:var(--danger)}
+dialog.sos .who{font-weight:700;margin:0 0 12px;line-height:1.7}
+dialog.sos .who em{font-style:normal}
+dialog.sos .kids{margin-bottom:10px}
+dialog.sos .link{display:block;width:100%}
