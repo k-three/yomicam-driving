@@ -97,11 +97,13 @@ export type Incident = {
   /** 開始時刻。表示は 'HH:MM'、経過時間の計算はエポックms で行う */
   startedAt: Time;
   startedMs: number;
+  /** 何が起きたか（INCIDENT_KINDS の id）。種別を持つ前の記録は '' */
+  kind: string;
   /** 誰が・どの車で・どこで。管理画面から出したときは運転者が '管理者' になる */
   driver: string;
   vehicle: string;
   place: string;
-  /** 来ていない・所在が分からない児童の呼び名（任意） */
+  /** 対象の児童の呼び名（任意）。所在不明なら「来ていない」児童、ケガなら「ケガをした」児童 */
   riders: string[];
   note: string;
   status: 'open' | 'closed';
@@ -135,3 +137,25 @@ export type Finding = {
   what: string;
   how: string;
 };
+
+/** 緊急の種別。何が起きたかで、最初にかける電話と Slack の見出しが変わる。
+ *  dial は社内の連絡先より先に案内する公的な番号（命に関わるとき・事故のとき）。 */
+export const INCIDENT_KINDS = [
+  { id: '所在不明', icon: '🔍', kids: '来ていない・所在が分からない児童',
+    placeholder: '例：下校時刻を20分過ぎても来ない', hint: '', dial: [] as string[] },
+  { id: 'ケガ', icon: '🩹', kids: 'ケガをした児童',
+    placeholder: '例：車を降りるときに転んで膝を切った',
+    hint: '意識がない・呼吸がおかしい・出血が止まらないなど、命に関わりそうなときは迷わず 119 を最優先に。',
+    dial: ['119'] },
+  { id: '体調不良', icon: '🤒', kids: '具合が悪い児童',
+    placeholder: '例：車内で吐いた・熱っぽい',
+    hint: '意識がない・呼吸がおかしい・けいれんが止まらないなど、命に関わりそうなときは迷わず 119 を最優先に。',
+    dial: ['119'] },
+  { id: '交通事故', icon: '🚗', kids: '乗っていた児童',
+    placeholder: '例：交差点で接触。けが人なし',
+    hint: 'まず停車して、けが人の救護と安全の確保を。警察（110）への報告は運転者の義務です（道路交通法第72条）。',
+    dial: ['119', '110'] },
+  { id: 'その他', icon: '⚠️', kids: '対象の児童', placeholder: '何が起きたかを短く', hint: '', dial: [] },
+] as const;
+
+export const kindOf = (id: string) => INCIDENT_KINDS.find(k => k.id === id);

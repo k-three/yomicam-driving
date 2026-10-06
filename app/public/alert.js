@@ -2,7 +2,8 @@
  *
  * 送迎記録アプリの「🚨 緊急」で立てた合図（Firestore の public/alert）を、
  * ログイン無しで読んで画面の先頭に赤い帯を出す。合図には個人情報が入っていない
- * （「緊急対応中かどうか」と「開始時刻」だけ）。詳細は送迎記録アプリと電話で。
+ * （「緊急対応中かどうか」「開始時刻」「種別（ケガ・所在不明など）」だけ）。
+ * 誰が・どこで・どの児童か、は送迎記録アプリと電話で。
  *
  * 使い方：ページのどこかに1行足すだけ
  *   <script src="https://k-three.github.io/yomicam-driving/alert.js" defer></script>
@@ -37,7 +38,8 @@
         + 'box-shadow:0 2px 8px rgba(0,0,0,.25)';
       document.body.insertBefore(el, document.body.firstChild);
     }
-    el.textContent = '🚨 緊急対応中　' + (state.sinceHm || hm(state.since)) + '〜　' + elapsed(state.since)
+    el.textContent = '🚨 緊急対応中' + (state.kind ? '：' + state.kind : '') + '　'
+      + (state.sinceHm || hm(state.since)) + '〜　' + elapsed(state.since)
       + '　詳細は送迎記録アプリ・電話で';
   }
 
@@ -54,7 +56,8 @@
         if (!active) { state = null; render(); return; }
         var since = f.since && f.since.timestampValue ? Date.parse(f.since.timestampValue) : NaN;
         if (isNaN(since)) since = f.sinceMs ? Number(f.sinceMs.integerValue || f.sinceMs.doubleValue) : Date.now();
-        state = { since: since, sinceHm: f.sinceHm && f.sinceHm.stringValue };
+        state = { since: since, sinceHm: f.sinceHm && f.sinceHm.stringValue,
+                  kind: f.kind && f.kind.stringValue };
         render();
       } catch (e) { /* 壊れた応答は無視して次を待つ */ }
     };

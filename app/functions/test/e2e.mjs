@@ -38,7 +38,7 @@ const until = async (fn, what, ms = 30_000) => {
 
 const base = {
   date: '2026-10-06', ymd: 20261006, startedAt: '14:32', startedMs: Date.now(),
-  driver: '運転者H', vehicle: 'パッソ', place: '渡慶次小学校', riders: ['そら'], note: '来ない',
+  kind: '所在不明', driver: '運転者H', vehicle: 'パッソ', place: '渡慶次小学校', riders: ['そら'], note: '来ない',
   status: 'open', outcome: '', closedAt: '', closedMs: 0, closedBy: '', closedNote: '', createdBy: 'u',
 };
 
@@ -52,7 +52,7 @@ try {
     const slack = await until(async () => (await ref.get()).data().slack, 'slack 欄');
     assert.equal(slack.ok, true);
     assert.equal(got.length, 1);
-    assert.match(got[0], /^<!channel> 🚨 \*緊急対応中\*（14:32〜）/);
+    assert.match(got[0], /^<!channel> 🚨 \*緊急：所在不明\*（14:32〜）/);
     assert.match(got[0], /来ていない・所在不明：\*そら\*/);
   });
 

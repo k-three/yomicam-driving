@@ -15,7 +15,7 @@ export type Snapshot = {
   incident: Incident | null;
 };
 
-export type IncidentInput = Pick<Incident, 'driver' | 'vehicle' | 'place' | 'riders' | 'note'>;
+export type IncidentInput = Pick<Incident, 'kind' | 'driver' | 'vehicle' | 'place' | 'riders' | 'note'>;
 
 /** 管理者が直せる項目。運転手アプリからは触らない */
 export type TripPatch = Partial<Pick<Trip,

@@ -18,6 +18,17 @@ describe('Slack の一報', () => {
     expect(t).toContain('<https://k-three.github.io/yomicam-driving/admin.html|送迎記録>');
     expect(t).not.toContain('遅れて');
   });
+  it('種別を見出しに出し、対象の児童の言い方を種別に合わせる', () => {
+    const t = raiseText({ ...inc, kind: 'ケガ', riders: ['りおん'] }, inc.startedMs);
+    expect(t.startsWith('<!channel> 🚨 *緊急：ケガ*（14:32〜）')).toBe(true);
+    expect(t).toContain('ケガをした児童：*りおん*');
+    expect(raiseText({ ...inc, kind: '所在不明' }, inc.startedMs)).toContain('来ていない・所在不明：*そら*');
+    expect(raiseText({ ...inc, kind: '交通事故' }, inc.startedMs)).toContain('乗っていた児童：*そら*');
+    expect(raiseText({ ...inc, kind: '体調不良' }, inc.startedMs)).toContain('具合が悪い児童：*そら*');
+  });
+  it('種別を持たない古い記録は、これまでどおりの見出し', () => {
+    expect(raiseText(inc, inc.startedMs).startsWith('<!channel> 🚨 *緊急対応中*（14:32〜）')).toBe(true);
+  });
   it('電波が悪くて遅れて届いたら、そのことを書く', () => {
     expect(raiseText(inc, inc.startedMs + 18 * 60_000)).toContain('押してから18分遅れて届きました');
   });
@@ -41,6 +52,8 @@ describe('解決・取り消しのお知らせ', () => {
       closedMs: inc.startedMs + 19 * 60_000, closedBy: '管理者', closedNote: '保護者が先に迎えに来ていた' });
     expect(t).toContain('✅ *解決*（14:51・管理者）');
     expect(t).toContain('14:32 に出た緊急対応（渡慶次小学校）　対応時間 19分');
+    expect(closeText({ ...inc, kind: 'ケガ', status: 'closed', outcome: 'resolved', closedAt: '14:51',
+      closedMs: inc.startedMs + 60_000, closedBy: '管理者' })).toContain('14:32 に出た緊急対応（ケガ・渡慶次小学校）');
     expect(t).toContain('内容：保護者が先に迎えに来ていた');
   });
   it('取り消しは誤報と分かるように書く', () => {

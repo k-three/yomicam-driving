@@ -184,3 +184,12 @@ dialog.sos .who{font-weight:700;margin:0 0 12px;line-height:1.7}
 dialog.sos .who em{font-style:normal}
 dialog.sos .kids{margin-bottom:10px}
 dialog.sos .link{display:block;width:100%}
+/* 何が起きたか。押し間違えにくい大きさで、選んだものは塗りつぶす */
+dialog.sos .sos-kinds{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 10px}
+dialog.sos .sos-kind{font-family:inherit;font-weight:900;font-size:14px;border:1.5px solid var(--line);
+  background:var(--surface);color:var(--ink);border-radius:12px;padding:10px 4px;cursor:pointer;line-height:1.3}
+dialog.sos .sos-kind span{display:block;font-size:20px}
+dialog.sos .sos-kind.on{background:var(--danger);border-color:var(--danger);color:#fff}
+dialog.sos .sos-hint{color:var(--danger);font-weight:700;margin:0 0 10px}
+/* 119・110 は社内の電話と見分けがつくよう、赤の輪郭にする */
+.big.call.public{background:var(--surface);color:var(--danger);border:2px solid var(--danger)}

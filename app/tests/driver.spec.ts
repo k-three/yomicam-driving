@@ -410,6 +410,8 @@ test('🚨 緊急：電話先を選べて、全員の画面に帯が出て、解
   await expect(call).toContainText('拠点');
 
   // いる学校のこどもが候補に出る。場所は入力させない
+  await dialog.getByTestId('kind-所在不明').click();
+  await expect(dialog).toContainText('来ていない・所在が分からない児童');
   await dialog.getByRole('button', { name: /そら/ }).click();
   await dialog.getByPlaceholder(/下校時刻/).fill('下校時刻を20分過ぎても来ない');
   await page.screenshot({ path: 'tests/shot-sos-dialog.png', fullPage: true });
@@ -418,9 +420,9 @@ test('🚨 緊急：電話先を選べて、全員の画面に帯が出て、解
 
   const banner = page.getByTestId('sos-banner');
   await expect(banner).toBeVisible();
-  await expect(banner).toContainText('緊急対応中');
+  await expect(banner).toContainText('緊急対応中：所在不明');
   await expect(banner).toContainText('渡慶次小学校');
-  await expect(banner).toContainText('そら');
+  await expect(banner).toContainText('来ていない：そら');
   await expect(banner).toContainText('分経過');
   await page.screenshot({ path: 'tests/shot-sos.png', fullPage: true });
 
@@ -443,6 +445,7 @@ test('連絡先が未登録でも、緊急の帯は出せる', async ({ page }) 
   await expect(dialog).toContainText('緊急連絡先がまだ登録されていません');
   // 運行中でなければ、場所を選ぶ
   await dialog.locator('[name=place]').selectOption('喜名小学校');
+  await dialog.getByTestId('kind-所在不明').click();
   page.once('dialog', d => d.accept());
   await dialog.getByTestId('raise').click();
   await expect(page.getByTestId('sos-banner')).toContainText('喜名小学校');
@@ -453,6 +456,7 @@ test('🚨 帯に、Slack に届いたかが出る（届いていないのに伝
   await page.getByTestId('sos').click();
   const dialog = page.getByRole('dialog');
   await dialog.locator('[name=place]').selectOption('喜名小学校');
+  await dialog.getByTestId('kind-所在不明').click();
   page.once('dialog', d => d.accept());
   await dialog.getByTestId('raise').click();
   const slack = page.getByTestId('sos-slack');
@@ -471,4 +475,49 @@ test('🚨 帯に、Slack に届いたかが出る（届いていないのに伝
   // 投稿できなかった
   await page.evaluate(() => (window as unknown as W).setIncidentState({ slack: { ok: false, error: '500' } }));
   await expect(slack).toContainText('投稿できませんでした。手動で投稿してください');
+});
+
+test('🚨 種別を選ぶ：ケガなら 119、事故なら 110 もすぐかけられ、乗せている児童が候補に出る', async ({ page }) => {
+  await unlock(page);
+  await page.evaluate(() => (window as unknown as { seedKids: () => void }).seedKids());
+  // 渡慶次小で2人乗せて、拠点へ戻る途中
+  await page.getByTestId('alc-record-運転前').click();
+  await page.getByTestId('depart').click();
+  await page.getByRole('button', { name: /渡慶次小学校/ }).click();
+  await page.getByRole('button', { name: /そら/ }).click();
+  await page.getByRole('button', { name: /りおん/ }).click();
+  await page.getByTestId('board').click();
+
+  await page.getByTestId('sos').click();
+  const dialog = page.getByRole('dialog');
+  // 何が起きたかを選ぶまでは出せない
+  await expect(dialog.getByTestId('raise')).toBeDisabled();
+  await expect(dialog.getByTestId('dial-119')).toHaveCount(0);
+
+  await dialog.getByTestId('kind-ケガ').click();
+  await expect(dialog.getByTestId('dial-119')).toHaveAttribute('href', 'tel:119');
+  await expect(dialog.getByTestId('dial-110')).toHaveCount(0);
+  await expect(dialog).toContainText('迷わず 119 を最優先');
+  await expect(dialog).toContainText('ケガをした児童');
+  // 乗せている児童が候補に出る（ケガ・体調不良・事故の対象になるのは乗っている子）
+  await expect(dialog.getByRole('button', { name: /そら.*乗車中/ })).toBeVisible();
+
+  await dialog.getByTestId('kind-交通事故').click();
+  await expect(dialog.getByTestId('dial-119')).toBeVisible();
+  await expect(dialog.getByTestId('dial-110')).toHaveAttribute('href', 'tel:110');
+  await expect(dialog).toContainText('道路交通法第72条');
+  await page.screenshot({ path: 'tests/shot-sos-kind.png', fullPage: true });
+
+  await dialog.getByTestId('kind-ケガ').click();
+  await dialog.getByRole('button', { name: /りおん.*乗車中/ }).click();
+  await expect(dialog.getByTestId('raise')).toHaveText('🚨 緊急対応中にする（ケガ）');
+  page.once('dialog', d => d.accept());
+  await dialog.getByTestId('raise').click();
+
+  const banner = page.getByTestId('sos-banner');
+  await expect(banner).toContainText('緊急対応中：ケガ');
+  await expect(banner).toContainText('ケガ：りおん');
+  // 対応中の画面からも 119 にすぐかけられる
+  await banner.getByRole('button', { name: '対応・解決' }).click();
+  await expect(page.getByRole('dialog').getByTestId('dial-119')).toBeVisible();
 });

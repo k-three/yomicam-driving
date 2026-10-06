@@ -17,16 +17,23 @@ const minutes = (ms) => {
   return m < 60 ? `${m}分` : `${Math.floor(m / 60)}時間${m % 60}分`;
 };
 
+/** 種別ごとの「対象の児童」の言い方。アプリの INCIDENT_KINDS と合わせる */
+const KIDS_LABEL = {
+  '所在不明': '来ていない・所在不明', 'ケガ': 'ケガをした児童', '体調不良': '具合が悪い児童',
+  '交通事故': '乗っていた児童', 'その他': '対象の児童',
+};
+const kidsLabel = (kind) => KIDS_LABEL[kind] ?? '来ていない・所在不明';
+
 /** 緊急対応を立てたときの一報 */
 export function raiseText(inc, nowMs = Date.now()) {
   const e = slackEscape;
   const lines = [
-    `<!channel> 🚨 *緊急対応中*（${e(inc.startedAt)}〜）`,
+    `<!channel> 🚨 *緊急${inc.kind ? `：${e(inc.kind)}` : '対応中'}*（${e(inc.startedAt)}〜）`,
     `場所：${e(inc.place) || '（未入力）'}`,
     `${e(inc.driver) || '（不明）'}${inc.vehicle ? `／車両：${e(inc.vehicle)}` : ''}`,
   ];
   if (Array.isArray(inc.riders) && inc.riders.length)
-    lines.push(`来ていない・所在不明：*${inc.riders.map(e).join('・')}*`);
+    lines.push(`${kidsLabel(inc.kind)}：*${inc.riders.map(e).join('・')}*`);
   if (inc.note) lines.push(`状況：${e(inc.note)}`);
   const late = nowMs - Number(inc.startedMs || nowMs);
   if (late > LATE_MS)
@@ -42,7 +49,8 @@ export function closeText(inc) {
     ? `↩️ *誤報として取り消し*（${e(inc.closedAt)}・${e(inc.closedBy)}）`
     : `✅ *解決*（${e(inc.closedAt)}・${e(inc.closedBy)}）`;
   const took = inc.closedMs && inc.startedMs ? `　対応時間 ${minutes(inc.closedMs - inc.startedMs)}` : '';
-  const lines = [head, `${e(inc.startedAt)} に出た緊急対応（${e(inc.place) || '場所未入力'}）${took}`];
+  const what = [inc.kind, inc.place || '場所未入力'].filter(Boolean).map(e).join('・');
+  const lines = [head, `${e(inc.startedAt)} に出た緊急対応（${what}）${took}`];
   if (inc.closedNote) lines.push(`内容：${e(inc.closedNote)}`);
   return lines.join('\n');
 }

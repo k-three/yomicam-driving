@@ -311,6 +311,7 @@ test('管理画面からも緊急を出せて、誤報として取り消せる',
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByTestId('call')).toHaveAttribute('href', 'tel:090-0000-0001');
   await dialog.locator('[name=place]').selectOption('古堅小学校');
+  await dialog.getByTestId('kind-所在不明').click();
   page.once('dialog', d => d.accept());
   await dialog.getByTestId('raise').click();
 

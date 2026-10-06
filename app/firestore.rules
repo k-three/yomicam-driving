@@ -111,8 +111,9 @@ service cloud.firestore {
       allow read: if true;
       allow write: if member()
         && request.resource.data.keys().hasOnly(
-             ['active', 'since', 'sinceMs', 'sinceHm', 'incidentId', 'updatedAt'])
+             ['active', 'since', 'sinceMs', 'sinceHm', 'incidentId', 'kind', 'updatedAt'])
         && request.resource.data.active is bool
+        && request.resource.data.get('kind', '').size() <= 10
         && request.resource.data.get('sinceHm', '').size() <= 5
         && request.resource.data.get('incidentId', '').size() <= 40;
     }

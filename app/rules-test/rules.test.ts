@@ -96,7 +96,7 @@ describe('緊急対応', () => {
     await assertSucceeds(setDoc(doc(asPassword(DRIVER), 'incidents', 'new'), incident()));
     await assertSucceeds(setDoc(doc(asPassword(DRIVER), 'public', 'alert'),
       { active: true, since: serverTimestamp(), sinceMs: Date.now(), sinceHm: '14:40', incidentId: 'new',
-        updatedAt: serverTimestamp() }));
+        kind: '交通事故', updatedAt: serverTimestamp() }));
   });
   it('Slack の結果（slack 欄）はアプリから入れられない。「投稿済み」を偽れない', async () => {
     await assertFails(setDoc(doc(asPassword(DRIVER), 'incidents', 'new'), { ...incident(), slack: { ok: true } }));

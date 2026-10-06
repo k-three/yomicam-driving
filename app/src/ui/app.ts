@@ -171,7 +171,14 @@ export class App {
     const place = open ? open.school
       : t ? (last ? `${last.school} → 拠点（移動中）` : `${t.base} → 学校（移動中）`)
       : '';
-    const kids = open ? this.childrenAt(open.school) : this.config.children.filter(c => c.active);
+    // 候補は「いま乗せている児童」と「いる学校の児童」。ケガ・体調不良・事故なら
+    // 乗せている児童、所在不明ならその学校の児童が対象になるため。どちらも無ければ全員
+    const onboard: Child[] = (t?.stops ?? []).flatMap(st => st.riders ?? [])
+      .map(r => ({ name: r.name, alias: r.alias, school: '', grade: '乗車中', active: true }));
+    const here = open ? this.childrenAt(open.school) : [];
+    const seen = new Set<string>();
+    const kids = [...onboard, ...here].filter(c => !seen.has(c.name) && seen.add(c.name));
+    if (!kids.length) kids.push(...this.config.children.filter(c => c.active));
     openEmergency({
       incident: this.snap?.incident ?? null, config: this.config,
       who: this.driver || '運転者', vehicle: this.vehicle, place, kids,

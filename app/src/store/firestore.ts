@@ -88,6 +88,7 @@ function toIncident(id: string, d: Doc, pending = false): Incident {
     date: String(d.date ?? ''),
     startedAt: String(d.startedAt ?? ''),
     startedMs: Number(d.startedMs ?? 0),
+    kind: String(d.kind ?? ''),
     driver: String(d.driver ?? ''),
     vehicle: String(d.vehicle ?? ''),
     place: String(d.place ?? ''),
@@ -359,6 +360,8 @@ export class FirestoreStore implements Store {
     });
     b.set(doc(this.db, 'public', 'alert'), {
       active: true, since: serverTimestamp(), sinceMs: ms, sinceHm: at, incidentId: id,
+      // 種別は個人情報ではないので、虎の巻の帯にも出す
+      kind: input.kind,
       updatedAt: serverTimestamp(),
     });
     this.send(b.commit());
