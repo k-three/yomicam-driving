@@ -9,6 +9,7 @@
 #      （画面には表示されない。このリポジトリにも残らない）
 #   3. 関数を配置する
 # 何度実行してもよい。2回目以降は 2 を飛ばす（URL を変えたいときは --reset-url を付ける）。
+# 途中で止めたいときは Ctrl+C（Ctrl+Z は「一時停止」なので、止まったまま残る）。
 set -euo pipefail
 
 PROJECT=yomicam-driving
@@ -34,9 +35,21 @@ echo "LOCATION=$REGION" > "$HERE/.env"
 
 echo "== 3/4 Slack の投稿先 URL"
 if [ "${1:-}" = "--reset-url" ] || ! gcloud secrets describe SLACK_WEBHOOK_URL --project "$PROJECT" >/dev/null 2>&1; then
-  echo "Slack の Incoming Webhook URL（https://hooks.slack.com/services/... ）を貼り付けて Enter。"
-  echo "入力した文字は画面に出ません。"
-  $FB functions:secrets:set SLACK_WEBHOOK_URL --project "$PROJECT"
+  # 聞くのはこのスクリプト自身。すぐに入力欄を出し、打った文字は画面に出さない。
+  # （以前は firebase の準備を待つ間に貼られてしまい、URL が画面に出ることがあった）
+  while :; do
+    printf '\nSlack の Incoming Webhook URL を貼り付けて Enter（画面には出ません）\nURL: '
+    IFS= read -rs URL; echo
+    URL=$(printf '%s' "$URL" | tr -d '[:space:]')
+    case "$URL" in
+      https://hooks.slack.com/services/?*) break ;;
+      "") echo "何も入力されていません。もう一度貼り付けてください。" ;;
+      *)  echo "形が違います。https://hooks.slack.com/services/ で始まる URL を貼り付けてください。" ;;
+    esac
+  done
+  printf '%s' "$URL" | $FB functions:secrets:set SLACK_WEBHOOK_URL --project "$PROJECT" --data-file=- --non-interactive
+  unset URL
+  echo "登録しました（URL は Google の Secret Manager にだけ保存されています）"
 else
   echo "登録済み（変えるときは: bash $0 --reset-url）"
 fi
