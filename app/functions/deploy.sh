@@ -56,7 +56,29 @@ fi
 
 echo "== 4/4 関数を配置（初回は数分かかります）"
 cd "$HERE" && npm ci --silent
-cd "$HERE/.." && $FB deploy --only functions --project "$PROJECT" --force
+cd "$HERE/.."
+# 初めて配置するときは、Google 側の権限（Eventarc）の反映が間に合わずに失敗することがある。
+# そのときは数分待てば通るので、ここで待ってやり直す（最大3回）
+LOG=$(mktemp)
+for attempt in 1 2 3 4; do
+  if $FB deploy --only functions --project "$PROJECT" --force 2>&1 | tee "$LOG"; then
+    rm -f "$LOG"; break
+  fi
+  if [ "$attempt" -lt 4 ] && grep -qiE "eventarc|propagat|first time using 2nd gen" "$LOG"; then
+    echo
+    echo "初回によくある「権限の反映待ち」です。3分待ってから、もう一度試します（${attempt}/3）。"
+    echo "このまま待ってください（閉じたり Ctrl+C を押したりしないでください）。"
+    sleep 180
+    continue
+  fi
+  rm -f "$LOG"
+  echo
+  echo "配置できませんでした。上のエラーを送ってください。"
+  echo "「Eventarc」の権限エラーが続くときは、次の1行を実行してから、もう一度このスクリプトを実行してください："
+  NUM=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
+  echo "  gcloud projects add-iam-policy-binding $PROJECT --member=serviceAccount:service-${NUM}@gcp-sa-eventarc.iam.gserviceaccount.com --role=roles/eventarc.serviceAgent"
+  exit 1
+done
 
 echo
 echo "完了しました。送迎記録の管理画面で「🚨 緊急」→「緊急対応中にする」を押すと、"
